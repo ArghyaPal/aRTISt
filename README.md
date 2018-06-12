@@ -1,2 +1,2 @@
 # aRTISan
-a Recurrent Text to Image Synthesizer
+a Recurrent Text to Image Synthesizer.

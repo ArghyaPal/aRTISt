@@ -1,0 +1,29 @@
+# General Configurations
+GPU_ID: '0,1,2,3'
+WORKERS: 4
+
+DATASET_NAME: 'birds'
+EMBEDDING_TYPE: 'cnn-rnn'
+DATA_DIR: '../data/birds'
+VOCAB_FILENAME: 'cub_vocab.pkl'
+
+# Recurrence related configurations
+INITIAL_IMAGE_SIZE: 16
+FINAL_IMAGE_SIZE: 512
+
+
+# Cross Caption Consistency configurations
+ENSURE_CAPTION_CONSISTENCY: False
+
+
+# Training configurations
+TRAIN:
+    FLAG: True
+    NET_G: ''
+    NET_D: ''
+    NET_CCN: ''
+    BATCH_SIZE: 24
+    MAX_EPOCH: 1800
+    SNAPSHOT_INTERVAL: 2000
+    DISCRIMINATOR_LR: 0.0002
+    GENERATOR_LR: 0.0002
