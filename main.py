@@ -62,17 +62,17 @@ if __name__ == "__main__":
         transforms.RandomHorizontalFlip()])
 
     if cfg.DATASET_NAME == 'birds':
-        from datasets import TextDataset
+        from datasets import BirdsDataset
 
-        dataset = TextDataset(cfg.DATA_DIR, split_dir,
+        dataset = BirdsDataset(cfg.DATA_DIR, split_dir,
                               base_size=cfg.INITIAL_IMAGE_SIZE,
                               transform=image_transform)
-    elif cfg.DATASET_NAME == 'flowers':
-        from datasets import FlowersDataset
-
-        dataset = FlowersDataset(cfg.DATA_DIR, split_dir,
-                                 base_size=cfg.INITIAL_IMAGE_SIZE,
-                                 transform=image_transform)
+    # elif cfg.DATASET_NAME == 'flowers':
+    #     from datasets import FlowersDataset
+    #
+    #     dataset = FlowersDataset(cfg.DATA_DIR, split_dir,
+    #                              base_size=cfg.INITIAL_IMAGE_SIZE,
+    #                              transform=image_transform)
     assert dataset
 
     num_gpu = len(cfg.GPU_ID.split(','))
