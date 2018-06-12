@@ -4,7 +4,7 @@ WORKERS: 4
 
 DATASET_NAME: 'birds'
 EMBEDDING_TYPE: 'cnn-rnn'
-DATA_DIR: '../data/birds'
+DATA_DIR: './data/birds'
 VOCAB_FILENAME: 'cub_vocab.pkl'
 
 # Recurrence related configurations
@@ -21,7 +21,7 @@ TRAIN:
     FLAG: True
     NET_G: ''
     NET_D: ''
-    NET_CCN: ''
+    NET_CCCN: ''
     BATCH_SIZE: 24
     MAX_EPOCH: 1800
     SNAPSHOT_INTERVAL: 2000

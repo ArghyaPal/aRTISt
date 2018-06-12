@@ -54,7 +54,7 @@ if __name__ == "__main__":
     # Get data loader
     num_time_step = np.log2(cfg.FINAL_IMAGE_SIZE / cfg.INITIAL_IMAGE_SIZE)
 
-    imsize = cfg.INITIAL_IMAGE_SIZE * (2 ** num_time_step)
+    imsize = cfg.INITIAL_IMAGE_SIZE * (2 ** int(num_time_step))
 
     image_transform = transforms.Compose([
         transforms.Scale(int(imsize * 76 / 64)),

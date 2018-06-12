@@ -29,7 +29,7 @@ default.TRAIN.GENERATOR_LR = 2e-4
 default.TRAIN.FLAG = True
 default.TRAIN.NET_G = ''
 default.TRAIN.NET_D = ''
-default.TRAIN.NET_CCN = ''
+default.TRAIN.NET_CCCN = ''
 
 default.TRAIN.COEFF = edict()
 default.TRAIN.COEFF.KL = 2.0

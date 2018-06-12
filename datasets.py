@@ -60,7 +60,7 @@ class BirdsDataset(data.Dataset):
         self.imsize = []
         num_time_step = np.log2(cfg.FINAL_IMAGE_SIZE / cfg.INITIAL_IMAGE_SIZE)
         base_size = cfg.INITIAL_IMAGE_SIZE
-        for i in range(num_time_step+1):
+        for i in range(int(num_time_step)+1):
             self.imsize.append(base_size)
             base_size *= 2
 
