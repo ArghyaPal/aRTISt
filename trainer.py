@@ -232,14 +232,13 @@ class RecurrentGANTrainer:
     def train_Dnet(self, count):
         flag = count % 100
         batch_size = self.real_imgs[0].size(0)
-        print("**CHECK** batch_size", batch_size)
         criterion = self.citerion
 
         netD = self.netD
         optD = self.optimizerD
-        real_imgs = self.real_imgs
-        wrong_imgs = self.wrong_imgs
-        fake_imgs = self.fake_imgs # Take only the last image
+        real_imgs = self.real_imgs[0]
+        wrong_imgs = self.wrong_imgs[0]
+        fake_imgs = self.fake_imgs[-1] # Take only the last image
 
         netD.zero_grad()
 
@@ -247,7 +246,7 @@ class RecurrentGANTrainer:
         fake_labels = self.fake_labels[:batch_size]
 
         # Calculating the logits
-        mu = self.mus
+        mu = self.mus[-1]
         real_logits = netD(real_imgs, mu.detach())
         wrong_logits = netD(wrong_imgs, mu.detach())
         fake_logits = netD(fake_imgs.detach(), mu.detach())
@@ -286,7 +285,7 @@ class RecurrentGANTrainer:
         self.netG.zero_grad()
         errG_total = 0
         flag = count % 100
-        batch_size = self.real_imgs[0].size()
+        batch_size = self.real_imgs[0].size(0)
 
         criterion = self.citerion
 
