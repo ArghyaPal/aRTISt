@@ -475,5 +475,5 @@ class RecurrentGANTrainer:
                 batch_size = imgs[0].size(0)
                 h0.data.normal_(0, 1)
 
-                fake_imgs, _, _= netG(h0, t_embeddings)
-                self.save_singleimages(fake_imgs[-1], filenames, save_dir, split_dir, 1, 256)
+                fake_imgs, _, _ = netG(h0, t_embeddings)
+                self.save_singleimages(fake_imgs[-1], filenames, save_dir, split_dir, 1, 32)

@@ -36,6 +36,16 @@ default.TRAIN.COEFF.KL = 2.0
 default.TRAIN.COEFF.UNCOND_LOSS = 1.0
 default.TRAIN.COEFF.COLOR_LOSS = 0.0
 
+# GAN options
+default.GAN = edict()
+default.GAN.EMBEDDING_DIM = 128
+default.GAN.DF_DIM = 64
+default.GAN.GF_DIM = 64
+default.GAN.B_CONDITION = False
+
+default.TEXT = edict()
+default.TEXT.DIMENSION = 1024  # Dimension of the original text embedding from SJE
+
 def _merge_a_into_b(a, b):
     """
     Merge config dictionary a into config dictionary b, clobbering the

@@ -8,7 +8,7 @@ DATA_DIR: './data/birds'
 VOCAB_FILENAME: 'cub_vocab.pkl'
 
 # Recurrence related configurations
-INITIAL_IMAGE_SIZE: 16
+INITIAL_IMAGE_SIZE: 32
 FINAL_IMAGE_SIZE: 512
 
 
@@ -27,3 +27,10 @@ TRAIN:
     SNAPSHOT_INTERVAL: 2000
     DISCRIMINATOR_LR: 0.0002
     GENERATOR_LR: 0.0002
+
+# GAN Configurations
+GAN:
+    EMBEDDING_DIM: 128
+    DF_DIM: 64
+    GF_DIM: 64
+    TEXT_CONDITION: True # Whether the discriminator should be conditioned on text embedding.
