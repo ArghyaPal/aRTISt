@@ -142,13 +142,13 @@ def save_model(netG, avg_param_G, netD, epoch, model_dir):
     print('Saved Generator and Discriminator models.')
 
 
-def save_img_results(imgs_tcpu, fake_imgs, num_imgs,
-                     count, image_dir, summary_writer):
+def save_img_results(imgs_tcpu, fake_imgs, count, image_dir, summary_writer):
+
     num = cfg.TRAIN.VIS_COUNT
 
     # The range of real_img (i.e., self.imgs_tcpu[i][0:num])
     # is changed to [0, 1] by function vutils.save_image
-    real_img = imgs_tcpu[-1][0:num]
+    real_img = imgs_tcpu[0][0:num]
     vutils.save_image(
         real_img, '%s/real_samples.png' % (image_dir),
         normalize=True)
@@ -159,22 +159,23 @@ def save_img_results(imgs_tcpu, fake_imgs, num_imgs,
     sup_real_img = summary.image('real_img', real_img_set)
     summary_writer.add_summary(sup_real_img, count)
 
-    for i in range(num_imgs):
-        fake_img = fake_imgs[i][0:num]
-        # The range of fake_img.data (i.e., self.fake_imgs[i][0:num])
-        # is still [-1. 1]...
-        vutils.save_image(
-            fake_img.data, '%s/count_%09d_fake_samples%d.png' %
-            (image_dir, count, i), normalize=True)
+    # Saving the output of the last time-step
+    fake_img = fake_imgs[-1][0:num]
+    # The range of fake_img.data (i.e., self.fake_imgs[i][0:num])
+    # is still [-1. 1]...
+    vutils.save_image(
+        fake_img.data, '%s/count_%09d_fake_samples.png' %
+        (image_dir, count), normalize=True)
 
-        fake_img_set = vutils.make_grid(fake_img.data).cpu().numpy()
-        fake_img_set = np.transpose(fake_img_set, (1, 2, 0))
-        fake_img_set = (fake_img_set + 1) * 255 / 2
-        fake_img_set = fake_img_set.astype(np.uint8)
+    fake_img_set = vutils.make_grid(fake_img.data).cpu().numpy()
+    fake_img_set = np.transpose(fake_img_set, (1, 2, 0))
+    fake_img_set = (fake_img_set + 1) * 255 / 2
+    fake_img_set = fake_img_set.astype(np.uint8)
 
-        sup_fake_img = summary.image('fake_img%d' % i, fake_img_set)
-        summary_writer.add_summary(sup_fake_img, count)
-        summary_writer.flush()
+    sup_fake_img = summary.image('fake_img%d' % count, fake_img_set)
+    summary_writer.add_summary(sup_fake_img, count)
+    summary_writer.flush()
+
 #  Helper Functions : End
 
 
@@ -404,7 +405,7 @@ class RecurrentGANTrainer:
                     backup_para = copy_G_params(self.netG)
                     load_params(self.netG, avg_param_G)
                     self.fake_imgs, _, _ = self.netG(h0_initalized, self.txt_embeddings)
-                    save_img_results(self.imgs_tcpu, self.fake_imgs, 1, count, self.image_dir, self.summary_writer)
+                    save_img_results(self.imgs_tcpu, self.fake_imgs, count, self.image_dir, self.summary_writer)
                     load_params(self.netG, backup_para)
 
                     # Compute Inception Score
