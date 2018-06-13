@@ -13,7 +13,7 @@ FINAL_IMAGE_SIZE: 512
 
 
 # Cross Caption Consistency configurations
-ENSURE_CAPTION_CONSISTENCY: False
+ENSURE_CAPTION_CONSISTENCY: True
 
 
 # Training configurations

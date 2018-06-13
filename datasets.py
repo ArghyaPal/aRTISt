@@ -181,9 +181,9 @@ class BirdsDataset(data.Dataset):
             len_vector.append(len(target))
             target = torch.Tensor(target)
 
-            target_padded = torch.zeros(cfg.TREE.MAX_CAPTION_LEN).long()
+            target_padded = torch.zeros(cfg.CCCN.MAX_CAPTION_LEN).long()
             end = len(target)
-            end = cfg.TREE.MAX_CAPTION_LEN if end > cfg.TREE.MAX_CAPTION_LEN else end
+            end = cfg.CCCN.MAX_CAPTION_LEN if end > cfg.CCCN.MAX_CAPTION_LEN else end
             # print ('end index: ', end)
             target_padded[:end] = target[:end]
 

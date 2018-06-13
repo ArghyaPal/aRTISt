@@ -190,7 +190,7 @@ class NewHiddenLayer(nn.Module):
 
         self.jointConv = Block3x3_relu((1+3), self.ngf)
         self.residual = self._make_layer(ResBlock, self.ngf)
-        self.single_out = nn.Conv2d(self.ndf, 1, kernel_size=1)
+        self.single_out = nn.Conv2d(self.ngf, 1, kernel_size=1)
 
     def _make_layer(self, block, channel_num):
         layers = []

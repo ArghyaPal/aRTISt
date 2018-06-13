@@ -41,10 +41,13 @@ default.GAN = edict()
 default.GAN.EMBEDDING_DIM = 128
 default.GAN.DF_DIM = 64
 default.GAN.GF_DIM = 64
-default.GAN.B_CONDITION = False
+default.GAN.TEXT_CONDITION = False
 
 default.TEXT = edict()
 default.TEXT.DIMENSION = 1024  # Dimension of the original text embedding from SJE
+
+default.CCCN = edict()
+default.CCCN.MAX_CAPTION_LEN = 70
 
 def _merge_a_into_b(a, b):
     """

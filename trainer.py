@@ -219,7 +219,6 @@ class RecurrentGANTrainer:
                 v_caption_tensors = Variable(caption_tensors)
                 v_len_vector = len_vector
 
-        print("Len of imgs: ", len(imgs))
         for i in range(len(imgs)):
             if cfg.CUDA:
                 real_vimgs.append(Variable(imgs[i]).cuda())
