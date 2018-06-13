@@ -91,4 +91,4 @@ if __name__ == "__main__":
     else:
         algo.evaluate(split_dir)
     end_t = time.time()
-    print('Total time for training:', end_t - start_t)
+    print 'Total time for training:', end_t - start_t
