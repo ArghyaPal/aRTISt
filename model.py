@@ -226,7 +226,7 @@ class GenerateImage(nn.Module):
         self.ef_dim = cfg.GAN.EMBEDDING_DIM
         self.gf_dim = cfg.GAN.GF_DIM
         self.num_residual = num_residual
-        self.joinConv = Block3x3_relu(self.gf_dim+self.ef_dim, self.gf_dim)
+        self.joinConv = Block3x3_relu(1+self.ef_dim, self.gf_dim)
         self.residual = self._make_layer(ResBlock, self.gf_dim)
         self.imageLayer = FinalImageLayer(self.gf_dim)
 
