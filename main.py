@@ -2,6 +2,7 @@ import argparse, pprint, random, datetime, dateutil.tz, time, numpy as np
 import torch, torchvision.transforms as transforms
 from config import cfg_from_file, cfg
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Train an evaluate a recurrent GAN, which generated images'
                                                  ' from captions.')

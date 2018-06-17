@@ -353,8 +353,8 @@ class RecurrentGANTrainer:
         # self.gradient_half = torch.FloatTensor([0.5])
 
         # Initial Hidden State
-        h0 = Variable(torch.FloatTensor(self.batch_size, 1, cfg.INITIAL_IMAGE_SIZE, cfg.INITIAL_IMAGE_SIZE))
-        h0_initalized = Variable(torch.FloatTensor(self.batch_size, 1, cfg.INITIAL_IMAGE_SIZE, cfg.INITIAL_IMAGE_SIZE).normal_(0,1))
+        h0 = Variable(torch.FloatTensor(self.batch_size, 1, cfg.HIDDEN_STATE_SIZE, cfg.HIDDEN_STATE_SIZE))
+        h0_initalized = Variable(torch.FloatTensor(self.batch_size, 1, cfg.HIDDEN_STATE_SIZE, cfg.HIDDEN_STATE_SIZE).normal_(0,1))
 
         if cfg.CUDA:
             self.citerion.cuda()

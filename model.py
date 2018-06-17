@@ -183,19 +183,15 @@ class FinalImageLayer(nn.Module):
 class GenerateImage(nn.Module):
     def __init__(self, num_residual=2):
         super(GenerateImage, self).__init__()
+
         self.ef_dim = cfg.GAN.EMBEDDING_DIM
         self.gf_dim = cfg.GAN.GF_DIM
         self.num_residual = num_residual
-        self.joinConv = Block3x3_relu(1+self.ef_dim, self.gf_dim)
-        self.residual = self._make_layer(ResBlock, self.gf_dim)
-        self.imageLayer = FinalImageLayer(self.gf_dim)
-        # self.upsample = upBlock(self.gf_dim, self.gf_dim // 2)
 
-    def _make_layer(self, block, channel_num):
-        layers = []
-        for i in range(self.num_residual):
-            layers.append(block(channel_num))
-        return nn.Sequential(*layers)
+        self.joinConv = Block3x3_relu(1 + self.ef_dim, self.gf_dim * 4)
+        self.upsample1 = upBlock(self.gf_dim, self.gf_dim // 2)
+        self.upsample2 = upBlock(self.gf_dim // 2, self.gf_dim // 4)
+        self.imageLayer = FinalImageLayer(self.gf_dim)
 
     def forward(self, hidden_state, caption_vector):
         s_size = hidden_state.size(2)
@@ -203,11 +199,12 @@ class GenerateImage(nn.Module):
         c_code = c_code.repeat(1, 1, s_size, s_size)
         h_c_code = torch.cat((c_code, hidden_state), 1)
 
-        out_code = self.joinConv(h_c_code)
-        out_code = self.residual(out_code)
-        # out_code = self.upsample(out_code) # for 64x64 images
-        out_code = self.imageLayer(out_code)
-        return out_code
+        out_code_16 = self.joinConv(h_c_code)
+        out_code_32 = self.upsample1(out_code_16)
+        out_code_64 = self.upsample2(out_code_32)
+        img = self.imageLayer(out_code_64)
+
+        return img, out_code_16
 
 
 class Generator(nn.Module):
@@ -230,10 +227,10 @@ class Generator(nn.Module):
             c, m, l = self.ca_net(caption_vec)
 
             # Generate Image
-            img = self.gen_image_stage(hidden_state, c)
+            img, out_code_16 = self.gen_image_stage(hidden_state, c)
 
             # Update Hidden State
-            hidden_state = self.hidden_state_update_stage(hidden_state, img)
+            hidden_state = self.hidden_state_update_stage(hidden_state, out_code_16)
 
             c_codes.append(c)
             mus.append(m)
@@ -292,13 +289,13 @@ class Discriminator(nn.Module):
         self.ndf = cfg.GAN.DF_DIM # Granular depth of Discriminator Feature maps
         self.embed_dim = cfg.GAN.EMBEDDING_DIM # Depth of the text embedding
 
-        self.img_s4 = encode_image_by_8times(self.ndf) # img_s4 contains image of size 4x4 (32/8=4)
+        # self.img_s4 = encode_image_by_8times(self.ndf) # img_s4 contains image of size 4x4 (32/8=4)
         self.img_s16 = encode_image_by_16times(self.ndf) # img_s4 contains image of size 4x4 (64/16=4)
-        self.logits = nn.Sequential(nn.Conv2d(self.ndf*4, 1, kernel_size=4, stride=4),
+        self.logits = nn.Sequential(nn.Conv2d(self.ndf * 8, 1, kernel_size=4, stride=4),
                                     nn.Sigmoid())
 
         if cfg.GAN.TEXT_CONDITION:
-            self.jointConv = Block3x3_leakRelu(self.ndf * 8 + self.embed_dim, self.ndf * 4)
+            self.jointConv = Block3x3_leakRelu(self.ndf * 8 + self.embed_dim, self.ndf * 8)
             self.uncond_logits = nn.Sequential(nn.Conv2d(self.ndf * 8, 1, kernel_size=4, stride=4),
                                                nn.Sigmoid())
 

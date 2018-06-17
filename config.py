@@ -13,15 +13,18 @@ default.GPU_ID = '0'
 default.CUDA = True
 default.WORKERS = 6
 
+# Recurrence options
 default.INITIAL_IMAGE_SIZE = 16
 default.FINAL_IMAGE_SIZE = 512
+default.HIDDEN_STATE_SIZE = 16  # The hidden state will be of dimension 1 x HIDDEN_STATE_SIZE x HIDDEN_STATE_SIZE
+
 
 default.ENSURE_CAPTION_CONSISTENCY = False
 
 # Training options
 default.TRAIN = edict()
 default.TRAIN.BATCH_SIZE = 64
-default.TRAIN.VIS_COUNT = 64 # Number of images to be visualized
+default.TRAIN.VIS_COUNT = 64  # Number of images to be visualized
 default.TRAIN.MAX_EPOCH = 600
 default.TRAIN.SNAPSHOT_INTERVAL = 2000
 default.TRAIN.DISCRIMINATOR_LR = 2e-4
