@@ -207,7 +207,7 @@ class BirdsDataset(data.Dataset):
         # Retrieve the embedding from the caption
         embeddings = self.embeddings[index, :, :]
 
-        # Load the image. `imgs` contains images of multiple sizes, one for each progressive GAN.
+        # Load the image. `imgs` contains images of multiple sizes.
         img_name = '%s/images/%s.jpg' % (data_dir, key)
         imgs = get_imgs(img_name, self.imsize,
                         bbox, self.transform, normalize=self.norm)

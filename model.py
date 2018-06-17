@@ -7,6 +7,7 @@ from torch.autograd import Variable
 
 from config import cfg
 
+
 class INCEPTION_V3(nn.Module):
     """
     Using the ImageNet pretrained Inception Network to analyse the Inception Score of the
@@ -43,24 +44,6 @@ class INCEPTION_V3(nn.Module):
         return x
 
 
-# Downscale the spatial size by a factor of 8
-def encode_image_by_8times(ndf):
-    encode_img = nn.Sequential(
-        # --> state size. ndf x in_size/2 x in_size/2
-        nn.Conv2d(3, ndf, 4, 2, 1, bias=False),
-        nn.LeakyReLU(0.2, inplace=True),
-        # --> state size 2ndf x x in_size/4 x in_size/4
-        nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
-        nn.BatchNorm2d(ndf * 2),
-        nn.LeakyReLU(0.2, inplace=True),
-        # --> state size 4ndf x in_size/8 x in_size/8
-        nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
-        nn.BatchNorm2d(ndf * 4),
-        nn.LeakyReLU(0.2, inplace=True),
-    )
-    return encode_img
-
-
 def conv3x3(in_planes, out_planes):
     "3x3 convolution with padding"
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=1,
@@ -74,40 +57,6 @@ def Block3x3_leakRelu(in_planes, out_planes):
         nn.LeakyReLU(0.2, inplace=True)
     )
     return block
-
-
-class Discriminator(nn.Module):
-    def __init__(self):
-        super(Discriminator, self).__init__()
-        self.ndf = cfg.GAN.DF_DIM # Granular depth of Discriminator Feature maps
-        self.embed_dim = cfg.GAN.EMBEDDING_DIM # Depth of the text embedding
-
-        self.img_s4 = encode_image_by_8times(self.ndf) # img_s4 contains image of size 4x4 (32/8=4)
-        self.logits = nn.Sequential(nn.Conv2d(self.ndf*4, 1, kernel_size=4, stride=4),
-                                    nn.Sigmoid())
-
-        if cfg.GAN.TEXT_CONDITION:
-            self.jointConv = Block3x3_leakRelu(self.ndf * 4 + self.embed_dim, self.ndf * 4)
-            self.uncond_logits = nn.Sequential(nn.Conv2d(self.ndf*4, 1, kernel_size=4, stride=4),
-                                               nn.Sigmoid())
-
-    def forward(self, image, caption_code=None):
-        img_code = self.img_s4(image)
-
-        if cfg.GAN.TEXT_CONDITION and caption_code is not None:
-            caption_code = caption_code.view(-1, self.embed_dim, 1, 1)
-            caption_code = caption_code.repeat(1, 1, 4, 4)
-            h_code = torch.cat((caption_code, img_code), 1)
-            h_code = self.jointConv(h_code)
-        else:
-            h_code = img_code
-
-        output = self.logits(h_code)
-        if cfg.GAN.TEXT_CONDITION:
-            output_uncond = self.uncond_logits(img_code)
-            return [output.view(-1), output_uncond.view(-1)]
-        else:
-            return [output.view(-1)]
 
 
 # -- Preparing Generator -- #
@@ -126,6 +75,17 @@ class GLU(nn.Module):
 # Keep the spatial size
 def Block3x3_relu(in_planes, out_planes):
     block = nn.Sequential(
+        conv3x3(in_planes, out_planes * 2),
+        nn.BatchNorm2d(out_planes * 2),
+        GLU()
+    )
+    return block
+
+
+# Upsale the spatial size by a factor of 2
+def upBlock(in_planes, out_planes):
+    block = nn.Sequential(
+        nn.Upsample(scale_factor=2, mode='nearest'),
         conv3x3(in_planes, out_planes * 2),
         nn.BatchNorm2d(out_planes * 2),
         GLU()
@@ -229,6 +189,7 @@ class GenerateImage(nn.Module):
         self.joinConv = Block3x3_relu(1+self.ef_dim, self.gf_dim)
         self.residual = self._make_layer(ResBlock, self.gf_dim)
         self.imageLayer = FinalImageLayer(self.gf_dim)
+        # self.upsample = upBlock(self.gf_dim, self.gf_dim // 2)
 
     def _make_layer(self, block, channel_num):
         layers = []
@@ -244,6 +205,7 @@ class GenerateImage(nn.Module):
 
         out_code = self.joinConv(h_c_code)
         out_code = self.residual(out_code)
+        # out_code = self.upsample(out_code) # for 64x64 images
         out_code = self.imageLayer(out_code)
         return out_code
 
@@ -279,3 +241,81 @@ class Generator(nn.Module):
             images.append(img)
 
         return images, mus, logvars
+
+
+# -- Preparing Discriminator -- #
+
+
+# Downscale the spatial size by a factor of 8
+def encode_image_by_8times(ndf):
+    encode_img = nn.Sequential(
+        # --> state size. ndf x in_size/2 x in_size/2
+        nn.Conv2d(3, ndf, 4, 2, 1, bias=False),
+        nn.LeakyReLU(0.2, inplace=True),
+        # --> state size 2ndf x x in_size/4 x in_size/4
+        nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
+        nn.BatchNorm2d(ndf * 2),
+        nn.LeakyReLU(0.2, inplace=True),
+        # --> state size 4ndf x in_size/8 x in_size/8
+        nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
+        nn.BatchNorm2d(ndf * 4),
+        nn.LeakyReLU(0.2, inplace=True),
+    )
+    return encode_img
+
+
+# Downsale the spatial size by a factor of 16
+def encode_image_by_16times(ndf):
+    encode_img = nn.Sequential(
+        # --> state size. ndf x in_size/2 x in_size/2
+        nn.Conv2d(3, ndf, 4, 2, 1, bias=False),
+        nn.LeakyReLU(0.2, inplace=True),
+        # --> state size 2ndf x x in_size/4 x in_size/4
+        nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
+        nn.BatchNorm2d(ndf * 2),
+        nn.LeakyReLU(0.2, inplace=True),
+        # --> state size 4ndf x in_size/8 x in_size/8
+        nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
+        nn.BatchNorm2d(ndf * 4),
+        nn.LeakyReLU(0.2, inplace=True),
+        # --> state size 8ndf x in_size/16 x in_size/16
+        nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
+        nn.BatchNorm2d(ndf * 8),
+        nn.LeakyReLU(0.2, inplace=True)
+    )
+    return encode_img
+
+
+class Discriminator(nn.Module):
+    def __init__(self):
+        super(Discriminator, self).__init__()
+        self.ndf = cfg.GAN.DF_DIM # Granular depth of Discriminator Feature maps
+        self.embed_dim = cfg.GAN.EMBEDDING_DIM # Depth of the text embedding
+
+        self.img_s4 = encode_image_by_8times(self.ndf) # img_s4 contains image of size 4x4 (32/8=4)
+        self.img_s16 = encode_image_by_16times(self.ndf) # img_s4 contains image of size 4x4 (64/16=4)
+        self.logits = nn.Sequential(nn.Conv2d(self.ndf*4, 1, kernel_size=4, stride=4),
+                                    nn.Sigmoid())
+
+        if cfg.GAN.TEXT_CONDITION:
+            self.jointConv = Block3x3_leakRelu(self.ndf * 8 + self.embed_dim, self.ndf * 4)
+            self.uncond_logits = nn.Sequential(nn.Conv2d(self.ndf * 8, 1, kernel_size=4, stride=4),
+                                               nn.Sigmoid())
+
+    def forward(self, image, caption_code=None):
+        # img_code = self.img_s4(image)
+        img_code = self.img_s16(image)
+        if cfg.GAN.TEXT_CONDITION and caption_code is not None:
+            caption_code = caption_code.view(-1, self.embed_dim, 1, 1)
+            caption_code = caption_code.repeat(1, 1, 4, 4)
+            h_code = torch.cat((caption_code, img_code), 1)
+            h_code = self.jointConv(h_code)
+        else:
+            h_code = img_code
+
+        output = self.logits(h_code)
+        if cfg.GAN.TEXT_CONDITION:
+            output_uncond = self.uncond_logits(img_code)
+            return [output.view(-1), output_uncond.view(-1)]
+        else:
+            return [output.view(-1)]

@@ -8,8 +8,8 @@ DATA_DIR: './data/birds'
 VOCAB_FILENAME: 'cub_vocab.pkl'
 
 # Recurrence related configurations
-INITIAL_IMAGE_SIZE: 32
-FINAL_IMAGE_SIZE: 512
+INITIAL_IMAGE_SIZE: 64
+FINAL_IMAGE_SIZE: 256
 
 
 # Cross Caption Consistency configurations
