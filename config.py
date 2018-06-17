@@ -16,7 +16,7 @@ default.WORKERS = 6
 # Recurrence options
 default.INITIAL_IMAGE_SIZE = 16
 default.FINAL_IMAGE_SIZE = 512
-default.HIDDEN_STATE_SIZE = 16  # The hidden state will be of dimension 1 x HIDDEN_STATE_SIZE x HIDDEN_STATE_SIZE
+default.HIDDEN_STATE_SIZE = 8  # The hidden state will be of dimension 1 x HIDDEN_STATE_SIZE x HIDDEN_STATE_SIZE
 
 
 default.ENSURE_CAPTION_CONSISTENCY = False

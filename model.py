@@ -192,6 +192,7 @@ class GenerateImage(nn.Module):
         self.joinConv = Block3x3_relu(1 + self.ef_dim, self.gf_dim * 4)
         self.upsample1 = upBlock(self.gf_dim * 4, self.gf_dim * 2)
         self.upsample2 = upBlock(self.gf_dim * 2, self.gf_dim)
+        self.upsample3 = upBlock(self.gf_dim, self.gf_dim)
         self.imageLayer = FinalImageLayer(self.gf_dim)
 
     def forward(self, hidden_state, caption_vector):
@@ -200,12 +201,13 @@ class GenerateImage(nn.Module):
         c_code = c_code.repeat(1, 1, s_size, s_size)
         h_c_code = torch.cat((c_code, hidden_state), 1)
 
-        out_code_16 = self.joinConv(h_c_code)
-        out_code_32 = self.upsample1(out_code_16)
-        out_code_64 = self.upsample2(out_code_32)
+        out_code_8 = self.joinConv(h_c_code)
+        out_code_16 = self.upsample1(out_code_8)
+        out_code_32 = self.upsample2(out_code_16)
+        out_code_64 = self.upsample3(out_code_32)
         img = self.imageLayer(out_code_64)
 
-        return img, out_code_16
+        return img, out_code_8
 
 
 class Generator(nn.Module):

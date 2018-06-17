@@ -10,7 +10,7 @@ VOCAB_FILENAME: 'cub_vocab.pkl'
 # Recurrence related configurations
 INITIAL_IMAGE_SIZE: 64
 FINAL_IMAGE_SIZE: 256
-HIDDEN_STATE_SIZE: 16 # The hidden state will be of dimension 1 x HIDDEN_STATE_SIZE x HIDDEN_STATE_SIZE
+HIDDEN_STATE_SIZE: 8 # The hidden state will be of dimension 1 x HIDDEN_STATE_SIZE x HIDDEN_STATE_SIZE
 
 
 # Cross Caption Consistency configurations
