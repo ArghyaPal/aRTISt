@@ -147,8 +147,9 @@ class NewHiddenLayer(nn.Module):
         super(NewHiddenLayer, self).__init__()
         self.ngf = ngf
         self.num_residual = num_residual
+        self.initial_depth = 256 + 1  # (Depth of the current_image_features + 1)
 
-        self.jointConv = Block3x3_relu((1+3), self.ngf)
+        self.jointConv = Block3x3_relu(self.initial_depth, self.ngf)
         self.residual = self._make_layer(ResBlock, self.ngf)
         self.single_out = nn.Conv2d(self.ngf, 1, kernel_size=1)
 
@@ -158,8 +159,8 @@ class NewHiddenLayer(nn.Module):
             layers.append(block(channel_num))
         return nn.Sequential(*layers)
 
-    def forward(self, prev_hidden_state, current_image):
-        stack = torch.cat((prev_hidden_state, current_image),1)
+    def forward(self, prev_hidden_state, current_image_features):
+        stack = torch.cat((prev_hidden_state, current_image_features),1)
         out_code = self.jointConv(stack)
         out_code = self.residual(out_code)
         out_code = self.single_out(out_code)
@@ -189,8 +190,8 @@ class GenerateImage(nn.Module):
         self.num_residual = num_residual
 
         self.joinConv = Block3x3_relu(1 + self.ef_dim, self.gf_dim * 4)
-        self.upsample1 = upBlock(self.gf_dim, self.gf_dim // 2)
-        self.upsample2 = upBlock(self.gf_dim // 2, self.gf_dim // 4)
+        self.upsample1 = upBlock(self.gf_dim * 4, self.gf_dim * 2)
+        self.upsample2 = upBlock(self.gf_dim * 2, self.gf_dim)
         self.imageLayer = FinalImageLayer(self.gf_dim)
 
     def forward(self, hidden_state, caption_vector):
