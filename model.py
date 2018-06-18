@@ -186,14 +186,15 @@ class GenerateImage(nn.Module):
         super(GenerateImage, self).__init__()
 
         self.ef_dim = cfg.GAN.EMBEDDING_DIM
-        self.gf_dim = cfg.GAN.GF_DIM
+        self.gf_dim = cfg.GAN.GF_DIM * 16
         self.num_residual = num_residual
+        self.hstate_depth = cfg.HIDDEN_STATE_DEPTH
 
-        self.joinConv = Block3x3_relu(1 + self.ef_dim, self.gf_dim * 4)
-        self.upsample1 = upBlock(self.gf_dim * 4, self.gf_dim * 2)
-        self.upsample2 = upBlock(self.gf_dim * 2, self.gf_dim)
-        self.upsample3 = upBlock(self.gf_dim, self.gf_dim)
-        self.imageLayer = FinalImageLayer(self.gf_dim)
+        self.joinConv = Block3x3_relu(self.hstate_depth + self.ef_dim, self.gf_dim)
+        self.upsample1 = upBlock(self.gf_dim, self.gf_dim // 2)
+        self.upsample2 = upBlock(self.gf_dim // 2, self.gf_dim // 4)
+        self.upsample3 = upBlock(self.gf_dim // 4, self.gf_dim // 16)
+        self.imageLayer = FinalImageLayer(self.gf_dim // 16)
 
     def forward(self, hidden_state, caption_vector):
         s_size = hidden_state.size(2)
@@ -210,35 +211,68 @@ class GenerateImage(nn.Module):
         return img, out_code_8
 
 
+class GenerateInitialHState(nn.Module):
+    def __init__(self):
+        super(GenerateInitialHState, self).__init__()
+
+        hvec_size = cfg.HIDDEN_VEC_SIZE  # Depth of the H-Vector
+        self.hstate_size = cfg.HIDDEN_STATE_SIZE  # Spatial dimension of H-State
+        self.hstate_depth = cfg.HIDDEN_STATE_DEPTH  # Depth of the H-State
+
+        self.fc = nn.Sequential(
+            nn.Linear(hvec_size, self.hstate_depth * self.hstate_size * self.hstate_size * 2, bias=False),
+            nn.BatchNorm1d(self.hstate_depth * self.hstate_size * self.hstate_size * 2),
+            GLU())
+
+    def forward(self, h_vector):
+        fc_out = self.fc(h_vector)
+        h_state = fc_out.view(-1, self.hstate_depth, self.hstate_size, self.hstate_size)
+        return h_state
+
+
 class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
         self.gen_image_stage = GenerateImage()
+        self.initial_h_state = GenerateInitialHState()
         self.hidden_state_update_stage = NewHiddenLayer()
         if cfg.GAN.TEXT_CONDITION:
             self.ca_net = CA_NET()
 
-    def forward(self, hidden_state, all_caption_vecs):
+    def forward(self, hidden_vec, all_caption_vecs):
         c_codes = []
         mus = []
         logvars = []
         images = []
 
-        # Building Recurrence
-        for i in range(all_caption_vecs.size(1)):
-            caption_vec = all_caption_vecs[:, i, :]
-            c, m, l = self.ca_net(caption_vec)
+        # try for one caption
+        caption_vec = all_caption_vecs[:, 0, :]
+        c, m, l = self.ca_net(caption_vec)
 
-            # Generate Image
-            img, out_code_16 = self.gen_image_stage(hidden_state, c)
+        # Generate Image
+        hidden_state = self.initial_h_state(hidden_vec)
+        img, out_code_16 = self.gen_image_stage(hidden_state, c)
 
-            # Update Hidden State
-            hidden_state = self.hidden_state_update_stage(hidden_state, out_code_16)
+        c_codes.append(c)
+        mus.append(m)
+        logvars.append(l)
+        images.append(img)
 
-            c_codes.append(c)
-            mus.append(m)
-            logvars.append(l)
-            images.append(img)
+        # # Building Recurrence
+        # for i in range(all_caption_vecs.size(1)):
+        #     caption_vec = all_caption_vecs[:, i, :]
+        #     c, m, l = self.ca_net(caption_vec)
+        #
+        #     # Generate Image
+        #     img, out_code_16 = self.gen_image_stage(hidden_state, c)
+        #
+        #     # Update Hidden State
+        #     hidden_state = self.hidden_state_update_stage(hidden_state, out_code_16)
+        #
+        #     c_codes.append(c)
+        #     mus.append(m)
+        #     logvars.append(l)
+        #     images.append(img)
 
         return images, mus, logvars
 
