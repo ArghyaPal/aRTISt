@@ -269,7 +269,8 @@ class Generator(nn.Module):
             img, out_code_16 = self.gen_image_stage(hidden_state, c)
 
             # Update Hidden State
-            hidden_state = self.hidden_state_update_stage(hidden_state, out_code_16)
+            hidden_state = self.initial_h_state(hidden_vec)
+            # hidden_state = self.hidden_state_update_stage(hidden_state, out_code_16)
 
             c_codes.append(c)
             mus.append(m)
