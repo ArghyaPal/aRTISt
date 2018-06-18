@@ -147,11 +147,12 @@ class NewHiddenLayer(nn.Module):
         super(NewHiddenLayer, self).__init__()
         self.ngf = ngf
         self.num_residual = num_residual
-        self.initial_depth = 256 + 1  # (Depth of the current_image_features + 1)
+        self.hstate_depth = cfg.HIDDEN_STATE_DEPTH
+        self.initial_depth = 256 + self.hstate_depth  # (Depth of the current_image_features + 1)
 
         self.jointConv = Block3x3_relu(self.initial_depth, self.ngf)
         self.residual = self._make_layer(ResBlock, self.ngf)
-        self.single_out = nn.Conv2d(self.ngf, 1, kernel_size=1)
+        self.single_out = nn.Conv2d(self.ngf, self.hstate_depth, kernel_size=1)
 
     def _make_layer(self, block, channel_num):
         layers = []
@@ -245,34 +246,35 @@ class Generator(nn.Module):
         logvars = []
         images = []
 
-        # try for one caption
-        caption_vec = all_caption_vecs[:, 0, :]
-        c, m, l = self.ca_net(caption_vec)
+        # # try for one caption
+        # caption_vec = all_caption_vecs[:, 0, :]
+        # c, m, l = self.ca_net(caption_vec)
+        #
+        # # Generate Image
+        # hidden_state = self.initial_h_state(hidden_vec)
+        # img, out_code_16 = self.gen_image_stage(hidden_state, c)
+        #
+        # c_codes.append(c)
+        # mus.append(m)
+        # logvars.append(l)
+        # images.append(img)
 
-        # Generate Image
+        # Building Recurrence
         hidden_state = self.initial_h_state(hidden_vec)
-        img, out_code_16 = self.gen_image_stage(hidden_state, c)
+        for i in range(all_caption_vecs.size(1)):
+            caption_vec = all_caption_vecs[:, i, :]
+            c, m, l = self.ca_net(caption_vec)
 
-        c_codes.append(c)
-        mus.append(m)
-        logvars.append(l)
-        images.append(img)
+            # Generate Image
+            img, out_code_16 = self.gen_image_stage(hidden_state, c)
 
-        # # Building Recurrence
-        # for i in range(all_caption_vecs.size(1)):
-        #     caption_vec = all_caption_vecs[:, i, :]
-        #     c, m, l = self.ca_net(caption_vec)
-        #
-        #     # Generate Image
-        #     img, out_code_16 = self.gen_image_stage(hidden_state, c)
-        #
-        #     # Update Hidden State
-        #     hidden_state = self.hidden_state_update_stage(hidden_state, out_code_16)
-        #
-        #     c_codes.append(c)
-        #     mus.append(m)
-        #     logvars.append(l)
-        #     images.append(img)
+            # Update Hidden State
+            hidden_state = self.hidden_state_update_stage(hidden_state, out_code_16)
+
+            c_codes.append(c)
+            mus.append(m)
+            logvars.append(l)
+            images.append(img)
 
         return images, mus, logvars
 
