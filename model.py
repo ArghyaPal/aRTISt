@@ -212,9 +212,9 @@ class GenerateImage(nn.Module):
         return img, out_code_8
 
 
-class GenerateInitialHState(nn.Module):
+class GenerateSpatialHState(nn.Module):
     def __init__(self):
-        super(GenerateInitialHState, self).__init__()
+        super(GenerateSpatialHState, self).__init__()
 
         hvec_size = cfg.HIDDEN_VEC_SIZE  # Depth of the H-Vector
         self.hstate_size = cfg.HIDDEN_STATE_SIZE  # Spatial dimension of H-State
@@ -231,12 +231,37 @@ class GenerateInitialHState(nn.Module):
         return h_state
 
 
+def update_hidden_vector(ngf, hidden_vec_size):
+    # for 64 x 64 image.
+    h_vec = nn.Sequential(
+        # --> state size. ngf x in_size/2 x in_size/2
+        nn.Conv2d(3, ngf, 4, 2, 1, bias=False),
+        nn.LeakyReLU(0.2, inplace=True),
+        # --> state size 2ngf x x in_size/4 x in_size/4
+        nn.Conv2d(ngf, ngf * 2, 4, 2, 1, bias=False),
+        nn.BatchNorm2d(ngf * 2),
+        nn.LeakyReLU(0.2, inplace=True),
+        # --> state size 4ngf x in_size/8 x in_size/8
+        nn.Conv2d(ngf * 2, ngf * 4, 4, 2, 1, bias=False),
+        nn.BatchNorm2d(ngf * 4),
+        nn.LeakyReLU(0.2, inplace=True),
+        # --> state size 8ngf x in_size/16 x in_size/16
+        nn.Conv2d(ngf * 4, ngf * 8, 4, 2, 1, bias=False),
+        nn.BatchNorm2d(ngf * 8),
+        nn.LeakyReLU(0.2, inplace=True),
+        nn.Conv2d(ngf * 8, hidden_vec_size, kernel_size=4, stride=4)
+    )
+    return h_vec
+
+
 class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
+        self.hidden_vec_size = cfg.HIDDEN_VEC_SIZE
         self.gen_image_stage = GenerateImage()
-        self.initial_h_state = GenerateInitialHState()
-        self.hidden_state_update_stage = NewHiddenLayer()
+        self.vec_h_to_spatial_h_converter = GenerateSpatialHState()
+        self.hidden_vector_update_stage = update_hidden_vector(cfg.GAN.GF_DIM, cfg.HIDDEN_VEC_SIZE)
+        # self.hidden_state_update_stage = NewHiddenLayer()
         if cfg.GAN.TEXT_CONDITION:
             self.ca_net = CA_NET()
 
@@ -260,16 +285,18 @@ class Generator(nn.Module):
         # images.append(img)
 
         # Building Recurrence
-        hidden_state = self.initial_h_state(hidden_vec)
+        spatial_hidden_state = self.vec_h_to_spatial_h_converter(hidden_vec)
         for i in range(all_caption_vecs.size(1)):
             caption_vec = all_caption_vecs[:, i, :]
             c, m, l = self.ca_net(caption_vec)
 
             # Generate Image
-            img, out_code_16 = self.gen_image_stage(hidden_state, c)
+            img, out_code_16 = self.gen_image_stage(spatial_hidden_state, c)
 
             # Update Hidden State
-            hidden_state = self.initial_h_state(hidden_vec)
+            hidden_vec = self.hidden_vector_update_stage(img)
+            hidden_vec = hidden_vec.view(-1, self.hidden_vec_size)
+            spatial_hidden_state = self.vec_h_to_spatial_h_converter(hidden_vec)
             # hidden_state = self.hidden_state_update_stage(hidden_state, out_code_16)
 
             c_codes.append(c)
