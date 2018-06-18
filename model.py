@@ -148,7 +148,7 @@ class NewHiddenLayer(nn.Module):
         self.ngf = ngf
         self.num_residual = num_residual
         self.hstate_depth = cfg.HIDDEN_STATE_DEPTH
-        self.initial_depth = 256 + self.hstate_depth  # (Depth of the current_image_features + 1)
+        self.initial_depth = 1024 + self.hstate_depth  # (Depth of the current_image_features + hstate_depth)
 
         self.jointConv = Block3x3_relu(self.initial_depth, self.ngf)
         self.residual = self._make_layer(ResBlock, self.ngf)
