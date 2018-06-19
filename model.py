@@ -182,6 +182,27 @@ class FinalImageLayer(nn.Module):
         return out_img
 
 
+class upStage(nn.Module):
+    def __init__(self, ndf, num_residuals=1):
+        super(upStage, self).__init__()
+        self.df_dim = ndf
+        self.num_residuals = num_residuals
+
+        self.residual = self._pack_layers(ResBlock, self.df_dim)
+        self.upsample = upBlock(self.df_dim, self.df_dim // 2)
+
+    def _pack_layers(self, block, num_channels):
+        layers = []
+        for i in range(self.num_residuals):
+            layers.append(block(num_channels))
+        return nn.Sequential(*layers)
+
+    def forward(self, activations):
+        out_acts = self.residual(activations)
+        out_acts = self.upsample(out_acts)
+        return out_acts
+
+
 class GenerateImage(nn.Module):
     def __init__(self, num_residual=2):
         super(GenerateImage, self).__init__()
@@ -191,13 +212,20 @@ class GenerateImage(nn.Module):
         self.num_residual = num_residual
         self.hstate_depth = cfg.HIDDEN_STATE_DEPTH
 
-        self.joinConv = Block3x3_relu(self.hstate_depth + self.ef_dim, self.gf_dim)
-        self.upsample1 = upBlock(self.gf_dim, self.gf_dim // 2)
-        self.upsample2 = upBlock(self.gf_dim // 2, self.gf_dim // 4)
-        self.upsample3 = upBlock(self.gf_dim // 4, self.gf_dim // 16)
-        self.imageLayer = FinalImageLayer(self.gf_dim // 16)
+        self.joinConv = Block3x3_relu(self.hstate_depth + self.ef_dim, self.gf_dim)  # SD: 8 x 8 (if HIDDEN_STATE_SIZE = 8, SD: Spatial Dimension)
+        self.upsample1 = upBlock(self.gf_dim, self.gf_dim // 2)                      # SD: 16 x 16
+        self.upsample2 = upBlock(self.gf_dim // 2, self.gf_dim // 4)                 # SD: 32 x 32
+        self.upsample3 = upBlock(self.gf_dim // 4, self.gf_dim // 16)                # SD: 64 x 64
+        self.image_layer_1 = FinalImageLayer(self.gf_dim // 16)                      # D: 3 x 64 x 64
+
+        self.gf_dimn = cfg.GAN.GF_DIM
+        self.up_stage_1 = upStage(self.gf_dimn)                                      # SD: 128 x 128
+        self.image_layer_2 = FinalImageLayer(self.gf_dimn // 2)
+        self.up_stage_2 = upStage(self.gf_dimn // 2)                                 # SD: 256 x 256
+        self.image_layer_3 = FinalImageLayer(self.gf_dimn // 4)
 
     def forward(self, hidden_state, caption_vector):
+        imgs = []
         s_size = hidden_state.size(2)
         c_code = caption_vector.view(-1, self.ef_dim, 1, 1)
         c_code = c_code.repeat(1, 1, s_size, s_size)
@@ -207,9 +235,18 @@ class GenerateImage(nn.Module):
         out_code_16 = self.upsample1(out_code_8)
         out_code_32 = self.upsample2(out_code_16)
         out_code_64 = self.upsample3(out_code_32)
-        img = self.imageLayer(out_code_64)
+        img_64 = self.image_layer_1(out_code_64)
+        imgs.append(img_64)
 
-        return img, out_code_8
+        out_us_128 = self.up_stage_1(out_code_64)
+        img_128 = self.image_layer_2(out_us_128)
+        imgs.append(img_128)
+
+        out_us_256 = self.up_stage_2(out_us_128)
+        img_256 = self.image_layer_3(out_us_256)
+        imgs.append(img_256)
+
+        return imgs
 
 
 class GenerateSpatialHState(nn.Module):
@@ -271,19 +308,6 @@ class Generator(nn.Module):
         logvars = []
         images = []
 
-        # # try for one caption
-        # caption_vec = all_caption_vecs[:, 0, :]
-        # c, m, l = self.ca_net(caption_vec)
-        #
-        # # Generate Image
-        # hidden_state = self.initial_h_state(hidden_vec)
-        # img, out_code_16 = self.gen_image_stage(hidden_state, c)
-        #
-        # c_codes.append(c)
-        # mus.append(m)
-        # logvars.append(l)
-        # images.append(img)
-
         # Building Recurrence
         spatial_hidden_state = self.vec_h_to_spatial_h_converter(hidden_vec)
         for i in range(all_caption_vecs.size(1)):
@@ -291,10 +315,10 @@ class Generator(nn.Module):
             c, m, l = self.ca_net(caption_vec)
 
             # Generate Image
-            img, out_code_16 = self.gen_image_stage(spatial_hidden_state, c)
+            imgs = self.gen_image_stage(spatial_hidden_state, c)
 
             # Update Hidden State
-            hidden_vec = self.hidden_vector_update_stage(img)
+            hidden_vec = self.hidden_vector_update_stage(imgs[0])
             hidden_vec = hidden_vec.view(-1, self.hidden_vec_size)
             spatial_hidden_state = self.vec_h_to_spatial_h_converter(hidden_vec)
             # hidden_state = self.hidden_state_update_stage(hidden_state, out_code_16)
@@ -302,7 +326,7 @@ class Generator(nn.Module):
             c_codes.append(c)
             mus.append(m)
             logvars.append(l)
-            images.append(img)
+            images.append(imgs)
 
         return images, mus, logvars
 

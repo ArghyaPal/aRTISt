@@ -104,15 +104,16 @@ def load_network(gpus):
         state_dict = torch.load('%s.pth' % (cfg.TRAIN.NET_D))
         netD.load_state_dict(state_dict)
 
-    inception_model = INCEPTION_V3()
+    inception_model = None
+    # inception_model = INCEPTION_V3()
 
     # Moving to GPU
     if cfg.CUDA:
         netG.cuda()
         netD.cuda()
-        inception_model = inception_model.cuda()
+        # inception_model = inception_model.cuda()
 
-    inception_model.eval()
+    # inception_model.eval()
 
     return netG, netD, inception_model, training_iter
 
@@ -148,7 +149,7 @@ def save_img_results(imgs_tcpu, fake_imgs, count, image_dir, summary_writer):
 
     # The range of real_img (i.e., self.imgs_tcpu[i][0:num])
     # is changed to [0, 1] by function vutils.save_image
-    real_img = imgs_tcpu[0][0:num]
+    real_img = imgs_tcpu[2][0:num]
     vutils.save_image(
         real_img, '%s/real_samples.png' % (image_dir),
         normalize=True)
@@ -160,7 +161,7 @@ def save_img_results(imgs_tcpu, fake_imgs, count, image_dir, summary_writer):
     summary_writer.add_summary(sup_real_img, count)
 
     # Saving the output of the last time-step
-    fake_img = fake_imgs[-1][0:num]
+    fake_img = fake_imgs[-1][-1][0:num]
     # The range of fake_img.data (i.e., self.fake_imgs[i][0:num])
     # is still [-1. 1]...
     vutils.save_image(
@@ -239,7 +240,7 @@ class RecurrentGANTrainer:
         optD = self.optimizerD
         real_imgs = self.real_imgs[0]
         wrong_imgs = self.wrong_imgs[0]
-        fake_imgs = self.fake_imgs[-1] # Take only the last image
+        fake_imgs = self.fake_imgs[-1][0] # Take only the last image
 
         netD.zero_grad()
 
@@ -296,7 +297,7 @@ class RecurrentGANTrainer:
 
         # Looping through each time-step.
         for i in range(len(self.fake_imgs)):
-            logits = self.netD(self.fake_imgs[i], mus[i])
+            logits = self.netD(self.fake_imgs[i][0], mus[i])
             errG = criterion(logits[0], real_labels)
             if len(logits) > 1 and cfg.TRAIN.COEFF.UNCOND_LOSS > 0:
                 errG_uncond = cfg.TRAIN.COEFF.UNCOND_LOSS * criterion(logits[1], real_labels)
@@ -363,7 +364,7 @@ class RecurrentGANTrainer:
             h0 = h0.cuda()
             h0_initalized = h0_initalized.cuda()
 
-        predictions = []
+        # predictions = []
         count = start_count
         start_epoch = start_count // self.num_batches
         for epoch in range(start_epoch, self.max_epoch):
@@ -385,8 +386,8 @@ class RecurrentGANTrainer:
                 for p, avg_p in zip(self.netG.parameters(), avg_param_G):
                     avg_p.mul_(0.999).add_(0.001, p.data)
 
-                pred = self.inception_model(self.fake_imgs[-1].detach())
-                predictions.append(pred.data.cpu().numpy())
+                # pred = self.inception_model(self.fake_imgs[-1][-1].detach())
+                # predictions.append(pred.data.cpu().numpy())
 
                 if count % 100 == 0:
                     summary_D = summary.scalar('D_loss', errD_total.data[0])
@@ -408,18 +409,18 @@ class RecurrentGANTrainer:
                     save_img_results(self.imgs_tcpu, self.fake_imgs, count, self.image_dir, self.summary_writer)
                     load_params(self.netG, backup_para)
 
-                    # Compute Inception Score
-                    if len(predictions) > 500:
-                        predictions = np.concatenate(predictions, 0)
-                        mean, std = compute_inception_score(predictions, 10)
-                        score_summary = summary.scalar('Inception_mean', mean)
-                        self.summary_writer.add_summary(score_summary, count)
-
-                        mean_nlpp, std_nlpp = negative_log_posterior_probability(predictions, 10)
-                        mean_nlpp_summary = summary.scalar('NLPP_mean', mean_nlpp)
-                        self.summary_writer.add_summary(mean_nlpp_summary, count)
-
-                        predictions = []
+                    # # Compute Inception Score
+                    # if len(predictions) > 500:
+                    #     predictions = np.concatenate(predictions, 0)
+                    #     mean, std = compute_inception_score(predictions, 10)
+                    #     score_summary = summary.scalar('Inception_mean', mean)
+                    #     self.summary_writer.add_summary(score_summary, count)
+                    #
+                    #     mean_nlpp, std_nlpp = negative_log_posterior_probability(predictions, 10)
+                    #     mean_nlpp_summary = summary.scalar('NLPP_mean', mean_nlpp)
+                    #     self.summary_writer.add_summary(mean_nlpp_summary, count)
+                    #
+                    #     predictions = []
             end_t = time.time()
             print('''[%d/%d][%d--%d] Loss_D: %.2f Loss_G: %.2f Loss_KL: %.2f Time: %.2fs
                       '''
