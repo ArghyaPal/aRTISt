@@ -422,10 +422,6 @@ class RecurrentGANTrainer:
                     self.summary_writer.add_summary(summary_G, count)
                     self.summary_writer.add_summary(summary_KL, count)
 
-                del errD_total
-                del errG_total
-                del kl_loss
-
                 count += 1
 
                 if count % cfg.TRAIN.SNAPSHOT_INTERVAL == 0:
@@ -434,10 +430,11 @@ class RecurrentGANTrainer:
                     # Save Images
                     backup_para = copy_G_params(self.netG)
                     load_params(self.netG, avg_param_G)
-                    self.fake_imgs, _, _ = self.netG(h0_initalized, self.txt_embeddings)
-                    save_img_results(self.imgs_tcpu, self.fake_imgs, self.num_Ds, count, self.image_dir, self.summary_writer)
+                    fake_imgs, _, _ = self.netG(h0_initalized, self.txt_embeddings)
+                    save_img_results(self.imgs_tcpu, fake_imgs, self.num_Ds, count, self.image_dir, self.summary_writer)
                     load_params(self.netG, backup_para)
-
+                    del backup_para
+                    del fake_imgs
                     # # Compute Inception Score
                     # if len(predictions) > 500:
                     #     predictions = np.concatenate(predictions, 0)
