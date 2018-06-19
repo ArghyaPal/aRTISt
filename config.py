@@ -16,6 +16,7 @@ default.WORKERS = 6
 # Recurrence options
 default.INITIAL_IMAGE_SIZE = 16
 default.FINAL_IMAGE_SIZE = 512
+default.IMG_IMPRV_STEPS = 3
 default.HIDDEN_VEC_SIZE = 100
 default.HIDDEN_STATE_SIZE = 8
 default.HIDDEN_STATE_DEPTH = 8  # The hidden state will be of dimension HIDDEN_STATE_DEPTH x HIDDEN_STATE_SIZE x HIDDEN_STATE_SIZE

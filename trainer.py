@@ -14,7 +14,7 @@ import torchvision.utils as vutils
 from tensorboard import summary
 from tensorboard import FileWriter
 
-from model import Discriminator, Generator, INCEPTION_V3
+from model import Discriminator64, Discriminator128, Discriminator256, Generator, INCEPTION_V3
 
 # Helper Functions : Start
 def KL_loss(mu, logvar):
@@ -82,10 +82,15 @@ def load_network(gpus):
     print(netG)
 
     # Discriminator
-    netD = Discriminator()
-    netD.apply(weights_init)
-    netD = torch.nn.DataParallel(netD, device_ids=gpus)
-    print(netD)
+    netsD = []
+    netsD.append(Discriminator64())
+    netsD.append(Discriminator128())
+    netsD.append(Discriminator256())
+
+    for i in range(len(netsD)):
+        netsD[i].apply(weights_init)
+        netsD[i] = torch.nn.DataParallel(netsD[i], device_ids=gpus)
+    print('First Discriminator: \n', netsD[0])
 
     # Loading pretrained weights, if exists.
     training_iter = 0
@@ -100,9 +105,10 @@ def load_network(gpus):
         training_iter = int(training_iter) + 1
 
     if cfg.TRAIN.NET_D != '':
-        print('Loading Discriminator from %s.pth' % (cfg.TRAIN.NET_D))
-        state_dict = torch.load('%s.pth' % (cfg.TRAIN.NET_D))
-        netD.load_state_dict(state_dict)
+        for i in range(len(netsD)):
+            print('Loading Discriminator from %s_%d.pth' % (cfg.TRAIN.NET_D, i))
+            state_dict = torch.load('%s%d.pth' % (cfg.TRAIN.NET_D, i))
+            netsD[i].load_state_dict(state_dict)
 
     inception_model = None
     # inception_model = INCEPTION_V3()
@@ -110,35 +116,42 @@ def load_network(gpus):
     # Moving to GPU
     if cfg.CUDA:
         netG.cuda()
-        netD.cuda()
+        for i in range(len(netsD)):
+            netsD[i].cuda()
+
         # inception_model = inception_model.cuda()
 
     # inception_model.eval()
 
-    return netG, netD, inception_model, training_iter
+    return netG, netsD, len(netsD),inception_model, training_iter
 
 
-def define_optimizers(netG, netD):
+def define_optimizers(netG, netsD):
     optimizerG = optim.Adam(netG.parameters(),
                             lr=cfg.TRAIN.GENERATOR_LR,
                             betas=(0.5, 0.999))
 
-    optimizerD = optim.Adam(netD.parameters(),
-                            lr=cfg.TRAIN.DISCRIMINATOR_LR,
-                            betas=(0.5, 0.999))
+    optimizersD = []
+    for i in range(len(netsD)):
+        optimizerD = optim.Adam(netsD[i].parameters(),
+                                lr=cfg.TRAIN.DISCRIMINATOR_LR,
+                                betas=(0.5, 0.999))
+        optimizersD.append(optimizerD)
 
-    return optimizerG, optimizerD
+    return optimizerG, optimizersD
 
 
-def save_model(netG, avg_param_G, netD, epoch, model_dir):
+def save_model(netG, avg_param_G, netsD, epoch, model_dir):
     load_params(netG, avg_param_G)
     torch.save(
         netG.state_dict(),
         '%s/netG_%d.pth' % (model_dir, epoch))
 
-    torch.save(
-        netD.state_dict(),
-        '%s/netD.pth' % (model_dir))
+    for i in range(len(netsD)):
+        netD = netsD[i]
+        torch.save(
+            netD.state_dict(),
+            '%s/netD%d.pth' % (model_dir, i))
 
     print('Saved Generator and Discriminator models.')
 
@@ -231,16 +244,16 @@ class RecurrentGANTrainer:
 
         return imgs, real_vimgs, wrong_vimgs, vembedding, v_caption_tensors, v_len_vector
 
-    def train_Dnet(self, count):
+    def train_Dnet(self, idx, count):
         flag = count % 100
         batch_size = self.real_imgs[0].size(0)
         criterion = self.citerion
 
-        netD = self.netD
-        optD = self.optimizerD
-        real_imgs = self.real_imgs[0]
-        wrong_imgs = self.wrong_imgs[0]
-        fake_imgs = self.fake_imgs[-1][0] # Take only the last image
+        netD = self.netsD[idx]
+        optD = self.optimizersD[idx]
+        real_imgs = self.real_imgs[idx]
+        wrong_imgs = self.wrong_imgs[idx]
+        fake_imgs = self.fake_imgs[-1][idx] # Take only the last image
 
         netD.zero_grad()
 
@@ -297,16 +310,18 @@ class RecurrentGANTrainer:
 
         # Looping through each time-step.
         for i in range(len(self.fake_imgs)):
-            logits = self.netD(self.fake_imgs[i][0], mus[i])
-            errG = criterion(logits[0], real_labels)
-            if len(logits) > 1 and cfg.TRAIN.COEFF.UNCOND_LOSS > 0:
-                errG_uncond = cfg.TRAIN.COEFF.UNCOND_LOSS * criterion(logits[1], real_labels)
-                errG += errG_uncond
-            errG_total += errG
+            # Looping for each discriminator
+            for j in range(self.num_Ds):
+                logits = self.netsD[j](self.fake_imgs[i][j], mus[i])
+                errG = criterion(logits[0], real_labels)
+                if len(logits) > 1 and cfg.TRAIN.COEFF.UNCOND_LOSS > 0:
+                    errG_uncond = cfg.TRAIN.COEFF.UNCOND_LOSS * criterion(logits[1], real_labels)
+                    errG += errG_uncond
+                errG_total += errG
 
-            if flag == 0:
-                summary_D = summary.scalar('G_loss%d' % i, errG.data[0])
-                self.summary_writer.add_summary(summary_D, count)
+                if flag == 0:
+                    summary_D = summary.scalar('G_loss%d' % i, errG.data[0])
+                    self.summary_writer.add_summary(summary_D, count)
 
         kl_loss = 0
         for i in range(len(self.fake_imgs)):
@@ -340,11 +355,11 @@ class RecurrentGANTrainer:
             im.save(fullpath)
 
     def train(self):
-        self.netG, self.netD, self.inception_model, start_count = load_network(self.gpus)
+        self.netG, self.netsD, self.num_Ds, self.inception_model, start_count = load_network(self.gpus)
 
         avg_param_G = copy_G_params(self.netG)
 
-        self.optimizerG, self.optimizerD = define_optimizers(self.netG, self.netD)
+        self.optimizerG, self.optimizersD = define_optimizers(self.netG, self.netsD)
 
         self.citerion = nn.BCELoss()
 
@@ -377,8 +392,11 @@ class RecurrentGANTrainer:
                 h0.data.normal_(0,1)
                 self.fake_imgs, self.mus, self.logvars = self.netG(h0, self.txt_embeddings)
 
-                # 2. Update Discriminator
-                errD_total = self.train_Dnet(count)
+                # 2. Update Discriminators
+                errD_total = 0
+                for i in range(self.num_Ds):
+                    errD = self.train_Dnet(i, count)
+                    errD_total += errD
 
                 # 3. Update Generator
                 kl_loss, errG_total = self.train_Gnet(count)
@@ -400,7 +418,7 @@ class RecurrentGANTrainer:
                 count += 1
 
                 if count % cfg.TRAIN.SNAPSHOT_INTERVAL == 0:
-                    save_model(self.netG, avg_param_G, self.netD, count, self.model_dir)
+                    save_model(self.netG, avg_param_G, self.netsD, count, self.model_dir)
 
                     # Save Images
                     backup_para = copy_G_params(self.netG)
@@ -427,7 +445,7 @@ class RecurrentGANTrainer:
                   % (epoch, self.max_epoch, self.num_batches, count,
                      errD_total.data[0], errG_total.data[0], kl_loss.data[0], end_t - start_t))
 
-        save_model(self.netG, avg_param_G, self.netD, count, self.model_dir)
+        save_model(self.netG, avg_param_G, self.netsD, count, self.model_dir)
         self.summary_writer.close()
 
     def evaluate(self, split_dir):

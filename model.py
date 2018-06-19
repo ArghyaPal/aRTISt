@@ -333,25 +333,6 @@ class Generator(nn.Module):
 
 # -- Preparing Discriminator -- #
 
-
-# Downscale the spatial size by a factor of 8
-def encode_image_by_8times(ndf):
-    encode_img = nn.Sequential(
-        # --> state size. ndf x in_size/2 x in_size/2
-        nn.Conv2d(3, ndf, 4, 2, 1, bias=False),
-        nn.LeakyReLU(0.2, inplace=True),
-        # --> state size 2ndf x x in_size/4 x in_size/4
-        nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
-        nn.BatchNorm2d(ndf * 2),
-        nn.LeakyReLU(0.2, inplace=True),
-        # --> state size 4ndf x in_size/8 x in_size/8
-        nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
-        nn.BatchNorm2d(ndf * 4),
-        nn.LeakyReLU(0.2, inplace=True),
-    )
-    return encode_img
-
-
 # Downsale the spatial size by a factor of 16
 def encode_image_by_16times(ndf):
     encode_img = nn.Sequential(
@@ -374,14 +355,23 @@ def encode_image_by_16times(ndf):
     return encode_img
 
 
-class Discriminator(nn.Module):
-    def __init__(self):
-        super(Discriminator, self).__init__()
-        self.ndf = cfg.GAN.DF_DIM # Granular depth of Discriminator Feature maps
-        self.embed_dim = cfg.GAN.EMBEDDING_DIM # Depth of the text embedding
+# Downscale the spatial size by 2
+def down_block(in_planes, out_planes):
+    block = nn.Sequential(
+        nn.Conv2d(in_planes, out_planes, 4, 2, 1, bias=False),
+        nn.BatchNorm2d(out_planes),
+        nn.LeakyReLU(0.2, inplace=True)
+    )
+    return block
 
-        # self.img_s4 = encode_image_by_8times(self.ndf) # img_s4 contains image of size 4x4 (32/8=4)
-        self.img_s16 = encode_image_by_16times(self.ndf) # img_s4 contains image of size 4x4 (64/16=4)
+
+class Discriminator64(nn.Module):
+    def __init__(self):
+        super(Discriminator64, self).__init__()
+        self.ndf = cfg.GAN.DF_DIM               # Depth of Discriminator Feature maps
+        self.embed_dim = cfg.GAN.EMBEDDING_DIM  # Depth of the text embedding
+
+        self.img_s16 = encode_image_by_16times(self.ndf)  # img_s4 contains image of size 4x4 (64/16=4)
         self.logits = nn.Sequential(nn.Conv2d(self.ndf * 8, 1, kernel_size=4, stride=4),
                                     nn.Sigmoid())
 
@@ -391,8 +381,89 @@ class Discriminator(nn.Module):
                                                nn.Sigmoid())
 
     def forward(self, image, caption_code=None):
-        # img_code = self.img_s4(image)
         img_code = self.img_s16(image)
+        if cfg.GAN.TEXT_CONDITION and caption_code is not None:
+            caption_code = caption_code.view(-1, self.embed_dim, 1, 1)
+            caption_code = caption_code.repeat(1, 1, 4, 4)
+            h_code = torch.cat((caption_code, img_code), 1)
+            h_code = self.jointConv(h_code)
+        else:
+            h_code = img_code
+
+        output = self.logits(h_code)
+        if cfg.GAN.TEXT_CONDITION:
+            output_uncond = self.uncond_logits(img_code)
+            return [output.view(-1), output_uncond.view(-1)]
+        else:
+            return [output.view(-1)]
+
+
+class Discriminator128(nn.Module):
+    def __init__(self):
+        super(Discriminator128, self).__init__()
+        self.ndf = cfg.GAN.DF_DIM               # Depth of Discriminator Feature maps
+        self.embed_dim = cfg.GAN.EMBEDDING_DIM  # Depth of the text embedding
+
+        self.img_s16 = encode_image_by_16times(self.ndf)  # img_s4 contains image of size 8x8 (128/16=8)
+        self.img_s_32 = down_block(self.ndf * 8, self.ndf * 16)
+        self.img_s_32_1 = Block3x3_leakRelu(self.ndf * 16, self.ndf * 8)
+
+        self.logits = nn.Sequential(nn.Conv2d(self.ndf * 8, 1, kernel_size=4, stride=4),
+                                    nn.Sigmoid())
+
+        if cfg.GAN.TEXT_CONDITION:
+            self.jointConv = Block3x3_leakRelu(self.ndf * 8 + self.embed_dim, self.ndf * 8)
+            self.uncond_logits = nn.Sequential(nn.Conv2d(self.ndf * 8, 1, kernel_size=4, stride=4),
+                                               nn.Sigmoid())
+
+    def forward(self, image, caption_code=None):
+        img_code = self.img_s16(image)
+        img_code = self.img_s_32(img_code)
+        img_code = self.img_s_32_1(img_code)
+
+        if cfg.GAN.TEXT_CONDITION and caption_code is not None:
+            caption_code = caption_code.view(-1, self.embed_dim, 1, 1)
+            caption_code = caption_code.repeat(1, 1, 4, 4)
+            h_code = torch.cat((caption_code, img_code), 1)
+            h_code = self.jointConv(h_code)
+        else:
+            h_code = img_code
+
+        output = self.logits(h_code)
+        if cfg.GAN.TEXT_CONDITION:
+            output_uncond = self.uncond_logits(img_code)
+            return [output.view(-1), output_uncond.view(-1)]
+        else:
+            return [output.view(-1)]
+
+
+class Discriminator256(nn.Module):
+    def __init__(self):
+        super(Discriminator256, self).__init__()
+        self.ndf = cfg.GAN.DF_DIM  # Depth of Discriminator Feature maps
+        self.embed_dim = cfg.GAN.EMBEDDING_DIM  # Depth of the text embedding
+
+        self.img_s16 = encode_image_by_16times(self.ndf)  # img_s4 contains image of size 8x8 (128/16=8)
+        self.img_s_32 = down_block(self.ndf * 8, self.ndf * 16)
+        self.img_s_64 = down_block(self.ndf * 16, self.ndf * 32)
+        self.img_s_64_1 = Block3x3_leakRelu(self.ndf * 32, self.ndf * 16)
+        self.img_s_64_2 = Block3x3_leakRelu(self.ndf * 16, self.ndf * 8)
+
+        self.logits = nn.Sequential(nn.Conv2d(self.ndf * 8, 1, kernel_size=4, stride=4),
+                                    nn.Sigmoid())
+
+        if cfg.GAN.TEXT_CONDITION:
+            self.jointConv = Block3x3_leakRelu(self.ndf * 8 + self.embed_dim, self.ndf * 8)
+            self.uncond_logits = nn.Sequential(nn.Conv2d(self.ndf * 8, 1, kernel_size=4, stride=4),
+                                               nn.Sigmoid())
+
+    def forward(self, image, caption_code=None):
+        img_code = self.img_s16(image)
+        img_code = self.img_s_32(img_code)
+        img_code = self.img_s_64(img_code)
+        img_code = self.img_s_64_1(img_code)
+        img_code = self.img_s_64_2(img_code)
+
         if cfg.GAN.TEXT_CONDITION and caption_code is not None:
             caption_code = caption_code.view(-1, self.embed_dim, 1, 1)
             caption_code = caption_code.repeat(1, 1, 4, 4)
