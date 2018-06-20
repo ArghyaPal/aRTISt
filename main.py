@@ -9,7 +9,7 @@ def parse_args():
     parser.add_argument('--cfg', dest='cfg_file',
                         help='optional config file',
                         default='config/train_birds.yml', type=str)
-    parser.add_argument('--gpu', dest='gpu_id', type=str, default='6,7')
+    parser.add_argument('--gpu', dest='gpu_id', type=str, default='0,1,2,3,6,7')
     parser.add_argument('--data_dir', dest='data_dir', type=str, default='')
     parser.add_argument('--manualSeed', type=int, help='manual seed')
     args = parser.parse_args()

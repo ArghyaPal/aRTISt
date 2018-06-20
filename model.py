@@ -246,7 +246,7 @@ class GenerateImage(nn.Module):
         img_256 = self.image_layer_3(out_us_256)
         imgs.append(img_256)
 
-        return imgs
+        return imgs, out_code_16
 
 
 class GenerateSpatialHState(nn.Module):
@@ -307,6 +307,7 @@ class Generator(nn.Module):
         mus = []
         logvars = []
         images = []
+        feature_maps = []
 
         # Building Recurrence
         spatial_hidden_state = self.vec_h_to_spatial_h_converter(hidden_vec)
@@ -315,7 +316,7 @@ class Generator(nn.Module):
             c, m, l = self.ca_net(caption_vec)
 
             # Generate Image
-            imgs = self.gen_image_stage(spatial_hidden_state, c)
+            imgs, out_code_16 = self.gen_image_stage(spatial_hidden_state, c)
 
             # Update Hidden State
             hidden_vec = self.hidden_vector_update_stage(imgs[0])
@@ -327,8 +328,10 @@ class Generator(nn.Module):
             mus.append(m)
             logvars.append(l)
             images.append(imgs)
+            if cfg.ENSURE_CAPTION_CONSISTENCY:
+                feature_maps.append(out_code_16)
 
-        return images, mus, logvars
+        return images, mus, logvars, feature_maps
 
 
 # -- Preparing Discriminator -- #
@@ -478,3 +481,143 @@ class Discriminator256(nn.Module):
             return [output.view(-1), output_uncond.view(-1)]
         else:
             return [output.view(-1)]
+
+
+# -- Preparing CCCN: Cross-Caption Consistency Network -- #
+
+class CCCN_NET(nn.Module):
+
+    def __init__(self, vis_dim=512, vis_num=256, embed_dim=512, hidden_dim=512,
+                 vocab_size=10000, num_layers=1, dropout_ratio=0.5):
+        """
+        :param vis_dim: Depth of the input feature map of the Image.
+        :param vis_num: W * H of the input feature map of the Image. (16*16)
+        :param embed_dim: Embedding dimension of the word vectors
+        :param hidden_dim: Dimension of the hidden state of the LSTM
+        :param vocab_size: Vocabulary size of the words
+        :param num_layers: Number of layers of LSTM
+        :param dropout_ratio: Dropout Ratio :)
+        """
+        super(CCCN_NET, self).__init__()
+
+        self.embed_dim = embed_dim
+        self.vis_dim = vis_dim      # The depth of the image feature tensor.
+        self.vis_num = vis_num
+        self.hidden_dim = hidden_dim
+        self.vocab_size = vocab_size
+        self.num_layers = num_layers
+        self.dropout_ratio = dropout_ratio
+
+        self.embed = nn.Embedding(vocab_size, embed_dim)
+        self.dropout = nn.Dropout(dropout_ratio) if dropout_ratio < 1 else None
+        self.lstm_cell = nn.LSTMCell(embed_dim + vis_dim, hidden_dim, num_layers)
+        self.fc_dropout = nn.Dropout(dropout_ratio) if dropout_ratio < 1 else None
+        self.fc_out = nn.Linear(hidden_dim, vocab_size)
+
+        # attention
+        self.att_vw = nn.Linear(self.vis_dim, self.vis_dim, bias=False)
+        self.att_hw = nn.Linear(self.hidden_dim, self.vis_dim, bias=False)
+        self.att_bias = nn.Parameter(torch.zeros(vis_num))
+        self.att_w = nn.Linear(self.vis_dim, 1, bias=False)
+
+    def _attention_layer(self, features, hiddens):
+        """
+        :param features:  batch_size  * 196 * 512
+        :param hiddens:  batch_size * hidden_dim
+        :return:
+        """
+        att_fea = self.att_vw(features)
+        # N-L-D
+        att_h = self.att_hw(hiddens).unsqueeze(1)
+        # N-1-D
+        att_full = nn.ReLU()(att_fea + att_h + self.att_bias.view(1, -1, 1))
+        att_out = self.att_w(att_full).squeeze(2)
+        alpha = nn.Softmax()(att_out)
+        # N-L
+        context = torch.sum(features * alpha.unsqueeze(2), 1)
+        return context, alpha
+
+    def forward(self, features, captions, lengths, isTestRun=False):
+        """
+        :param features: batch_size * 196 * 512
+        :param captions: batch_size * time_steps
+        :param lengths:
+        :return:
+        """
+        if isTestRun:
+            return self.sample(features)
+
+        batch_size, time_step = captions.data.shape
+        vocab_size = self.vocab_size
+        embed = self.embed
+        dropout = self.dropout
+        attention_layer = self._attention_layer
+        lstm_cell = self.lstm_cell
+        fc_dropout = self.fc_dropout
+        fc_out = self.fc_out
+
+        features = features.view(features.size(0), self.vis_dim, self.vis_num).transpose(1, 2)
+
+        word_embeddings = embed(captions)
+        word_embeddings = dropout(word_embeddings) if dropout is not None else word_embeddings
+
+        feas = torch.mean(features, 1)  # batch_size * 512
+        h0, c0 = self.get_start_states(batch_size)
+
+        predicts = self.to_var(torch.zeros(batch_size, time_step, vocab_size))
+
+        for step in xrange(time_step):
+            batch_size = sum(i >= step for i in lengths)
+            if batch_size == 0:
+                break
+
+            if step != 0:
+                feas, alpha = attention_layer(features[:batch_size, :], h0[:batch_size, :])
+
+            words = (word_embeddings[:batch_size, step, :]).squeeze(1)
+            inputs = torch.cat([feas, words], 1)
+            h0, c0 = lstm_cell(inputs, (h0[:batch_size, :], c0[:batch_size, :]))
+            outputs = fc_out(fc_dropout(h0)) if fc_dropout is not None else fc_out(h0)
+            predicts[:batch_size, step, :] = outputs
+
+        return predicts
+
+    def sample(self, feature, max_len=50):
+        # Greedy sample
+        embed = self.embed
+        lstm_cell = self.lstm_cell
+        fc_out = self.fc_out
+        attend = self._attention_layer
+        batch_size = feature.size(0)
+
+        sampled_ids = []
+        alphas = [0]
+
+        words = embed(self.to_var(torch.ones(batch_size, 1).long())).squeeze(1)
+        h0, c0 = self.get_start_states(batch_size)
+        feas = torch.mean(feature, 1) # convert to batch_size*512
+
+        for step in xrange(max_len):
+            if step != 0:
+                feas, alpha = attend(feature, h0)
+                alphas.append(alpha)
+            inputs = torch.cat([feas, words], 1)
+            h0, c0 = lstm_cell(inputs, (h0, c0))
+            outputs = fc_out(h0)
+            predicted = outputs.max(1)[1]
+            sampled_ids.append(predicted.unsqueeze(1))
+            words = embed(predicted)
+
+        sampled_ids = torch.cat(sampled_ids, 1)
+        return sampled_ids.squeeze(), alphas
+
+    def to_var(self, x, volatile=False):
+        if torch.cuda.is_available():
+            x = x.cuda()
+        return Variable(x, volatile=volatile)
+
+    def get_start_states(self, batch_size):
+        hidden_dim = self.hidden_dim
+        h0 = self.to_var(torch.zeros(batch_size, hidden_dim))
+        c0 = self.to_var(torch.zeros(batch_size, hidden_dim))
+        return h0, c0

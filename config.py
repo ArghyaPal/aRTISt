@@ -32,6 +32,7 @@ default.TRAIN.MAX_EPOCH = 600
 default.TRAIN.SNAPSHOT_INTERVAL = 2000
 default.TRAIN.DISCRIMINATOR_LR = 2e-4
 default.TRAIN.GENERATOR_LR = 2e-4
+default.TRAIN.CCCN_LR = 2e-4
 default.TRAIN.FLAG = True
 default.TRAIN.NET_G = ''
 default.TRAIN.NET_D = ''

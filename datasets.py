@@ -80,8 +80,7 @@ class BirdsDataset(data.Dataset):
         self.class_id = self.load_class_id(split_dir, len(self.filenames))
         self.captions = self.load_all_captions()
 
-        if cfg.ENSURE_CAPTION_CONSISTENCY:
-            self.vocab = self.load_vocabulary()
+        self.vocab = self.load_vocabulary()
 
         if cfg.TRAIN.FLAG:
             self.iterator = self.prepair_training_pairs
@@ -199,8 +198,7 @@ class BirdsDataset(data.Dataset):
         # Caption tensor contains a tensor of each word in the captions associated with the image.
         caption_tensors = None
         len_vector = None
-        if cfg.ENSURE_CAPTION_CONSISTENCY:
-            caption_tensors, len_vector = self.build_caption_tensors(self.captions[key])
+        caption_tensors, len_vector = self.build_caption_tensors(self.captions[key])
 
         # captions = self.captions[key]
 
