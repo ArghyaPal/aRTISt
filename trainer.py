@@ -404,6 +404,7 @@ class RecurrentGANTrainer:
 
             loss = criterion(predictions, targets)
             total_loss += loss
+            del predictions
 
         if flag == 0:
             summary_CCN = summary.scalar('CCCN_loss%d' % i, loss.data[0])
