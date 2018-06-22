@@ -8,8 +8,8 @@ def parse_args():
                                                  ' from captions.')
     parser.add_argument('--cfg', dest='cfg_file',
                         help='optional config file',
-                        default='config/train_birds.yml', type=str)
-    parser.add_argument('--gpu', dest='gpu_id', type=str, default='1,0,2,3,6,7')
+                        default='config/train_flowers.yml', type=str)
+    parser.add_argument('--gpu', dest='gpu_id', type=str, default='0')
     parser.add_argument('--data_dir', dest='data_dir', type=str, default='')
     parser.add_argument('--manualSeed', type=int, help='manual seed')
     args = parser.parse_args()
@@ -68,12 +68,12 @@ if __name__ == "__main__":
         dataset = BirdsDataset(cfg.DATA_DIR, split_dir,
                               base_size=cfg.INITIAL_IMAGE_SIZE,
                               transform=image_transform)
-    # elif cfg.DATASET_NAME == 'flowers':
-    #     from datasets import FlowersDataset
-    #
-    #     dataset = FlowersDataset(cfg.DATA_DIR, split_dir,
-    #                              base_size=cfg.INITIAL_IMAGE_SIZE,
-    #                              transform=image_transform)
+    elif cfg.DATASET_NAME == 'flowers':
+        from datasets import FlowersDataset
+
+        dataset = FlowersDataset(cfg.DATA_DIR, split_dir,
+                                 base_size=cfg.INITIAL_IMAGE_SIZE,
+                                 transform=image_transform)
     assert dataset
 
     num_gpu = len(cfg.GPU_ID.split(','))

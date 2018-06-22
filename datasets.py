@@ -4,7 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from config import cfg
-from helper.create_vocab import create_CUB_vocab
+from helper.create_vocab import create_CUB_vocab, create_FLOWER_vocab
 from PIL import Image
 import numpy as np
 import pandas as pd
@@ -240,6 +240,189 @@ class BirdsDataset(data.Dataset):
 
         embeddings = self.embeddings[index, :, :]
         img_name = '%s/images/%s.jpg' % (data_dir, key)
+        imgs = get_imgs(img_name, self.imsize,
+                        bbox, self.transform, normalize=self.norm)
+
+        if self.target_transform is not None:
+            embeddings = self.target_transform(embeddings)
+
+        return imgs, embeddings, key
+
+    def __getitem__(self, index):
+        return self.iterator(index)
+
+    def __len__(self):
+        return len(self.filenames)
+
+
+class FlowersDataset(data.Dataset):
+    """
+    Custom dataset handler for Oxford 102 Flowers dataset.
+    """
+    def __init__(self, data_dir, split='train', embedding_type='cnn-rnn',
+                 base_size=64, transform=None, target_transform=None):
+        self.transform = transform
+        self.norm = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+        self.target_transform = target_transform
+
+        # Define the sizes of the Image Ground-truths
+        self.imsize = []
+        self.num_progressive_steps = np.log2(cfg.FINAL_IMAGE_SIZE / cfg.INITIAL_IMAGE_SIZE)
+        base_size = cfg.INITIAL_IMAGE_SIZE
+        for i in range(int(self.num_progressive_steps) + 1):
+            self.imsize.append(base_size)
+            base_size *= 2
+
+        self.data = []
+        self.data_dir = data_dir
+        self.bbox = None
+
+        split_dir = os.path.join(data_dir, split)
+
+        self.filenames = self.load_filenames(split_dir)
+        self.embeddings = self.load_embedding(split_dir, embedding_type)
+        self.class_id = self.load_class_id(split_dir, len(self.filenames))
+        self.captions = self.load_all_captions()
+
+        self.vocab = self.load_vocabulary()
+
+        if cfg.TRAIN.FLAG:
+            self.iterator = self.prepair_training_pairs
+        else:
+            self.iterator = self.prepair_test_pairs
+
+    def load_vocabulary(self):
+        data_dir = self.data_dir
+        filenames = self.filenames
+        vocab_path = os.path.join(data_dir, cfg.VOCAB_FILENAME)
+        if not os.path.exists(vocab_path):
+            vocab = create_FLOWER_vocab(data_dir, filenames, vocab_path, self.class_id)
+        else:
+            with open(vocab_path, 'rb') as f:
+                vocab = pickle.load(f)
+            print ('Loaded vocabulary.')
+        return vocab
+
+    def load_all_captions(self):
+        def load_captions(caption_name):
+            cap_path = caption_name
+            with open(cap_path, "r") as f:
+                captions = f.read().decode('utf8').split('\n')
+            captions = [cap.replace("\ufffd\ufffd", " ")
+                        for cap in captions if len(cap) > 0]
+            return captions
+
+        caption_dict = {}
+
+        for i, key in enumerate(self.filenames):
+            caption_name = '%s/text/class_%05d/%s.txt' % (self.data_dir, self.class_id[i], key.split('/')[1])
+            captions = load_captions(caption_name)
+            caption_dict[key] = captions
+        return caption_dict
+
+    def load_embedding(self, data_dir, embedding_type):
+        if embedding_type == 'cnn-rnn':
+            embedding_filename = '/char-CNN-RNN-embeddings.pickle'
+        elif embedding_type == 'cnn-gru':
+            embedding_filename = '/char-CNN-GRU-embeddings.pickle'
+        elif embedding_type == 'skip-thought':
+            embedding_filename = '/skip-thought-embeddings.pickle'
+
+        with open(data_dir + embedding_filename, 'rb') as f:
+            embeddings = pickle.load(f)
+            embeddings = np.array(embeddings)
+            # embedding_shape = [embeddings.shape[-1]]
+            print('embeddings: ', embeddings.shape)
+        return embeddings
+
+    def load_class_id(self, data_dir, total_num):
+        if os.path.isfile(data_dir + '/class_info.pickle'):
+            with open(data_dir + '/class_info.pickle', 'rb') as f:
+                class_id = pickle.load(f)
+        else:
+            class_id = np.arange(total_num)
+        return class_id
+
+    def load_filenames(self, data_dir):
+        filepath = os.path.join(data_dir, 'filenames.pickle')
+        with open(filepath, 'rb') as f:
+            filenames = pickle.load(f)
+        print('Load filenames from: %s (%d)' % (filepath, len(filenames)))
+        return filenames
+
+    def build_caption_tensors(self, captions):
+        vocab = self.vocab
+        caption_tensor = []
+        len_vector = []
+        for caption in captions:
+            tokens = nltk.tokenize.word_tokenize(str(caption).lower())
+            target = list()
+            target.append(vocab('<start>'))
+            target.extend([vocab(word) for word in tokens])
+            target.append(vocab('<end>'))
+            len_vector.append(len(target))
+            target = torch.Tensor(target)
+
+            target_padded = torch.zeros(cfg.CCCN.MAX_CAPTION_LEN).long()
+            end = len(target)
+            end = cfg.CCCN.MAX_CAPTION_LEN if end > cfg.CCCN.MAX_CAPTION_LEN else end
+            # print ('end index: ', end)
+            target_padded[:end] = target[:end]
+
+            caption_tensor.append(target_padded)
+        len_vector = torch.LongTensor(len_vector)
+        return torch.stack(caption_tensor, 0), len_vector
+
+    def prepair_training_pairs(self, index):
+        key = self.filenames[index]
+
+        bbox = None
+        data_dir = self.data_dir
+
+        # Caption tensor contains a tensor of each word in the captions associated with the image.
+        caption_tensors = None
+        len_vector = None
+        caption_tensors, len_vector = self.build_caption_tensors(self.captions[key])
+
+        # captions = self.captions[key]
+
+        embeddings = self.embeddings[index, :, :]
+        img_name = '%s/%s.jpg' % (data_dir, key)
+        imgs = get_imgs(img_name, self.imsize,
+                        bbox, self.transform, normalize=self.norm)
+
+        wrong_ix = random.randint(0, len(self.filenames) - 1)
+        if(self.class_id[index] == self.class_id[wrong_ix]):
+            wrong_ix = random.randint(0, len(self.filenames) - 1)
+        wrong_key = self.filenames[wrong_ix]
+        if self.bbox is not None:
+            wrong_bbox = self.bbox[wrong_key]
+        else:
+            wrong_bbox = None
+        wrong_img_name = '%s/%s.jpg' % \
+            (data_dir, wrong_key)
+        wrong_imgs = get_imgs(wrong_img_name, self.imsize,
+                              wrong_bbox, self.transform, normalize=self.norm)
+
+
+        embedding = embeddings[:5]
+        if self.target_transform is not None:
+            for i in range(embeddings.shape[0]):
+                transformed_embeddings[i] = self.target_transform(embeddings[i, :])
+            embedding = transformed_embeddings
+
+        return imgs, wrong_imgs, embedding, key, caption_tensors, len_vector
+
+    def prepair_test_pairs(self, index):
+        key = self.filenames[index]
+
+        bbox = None
+        data_dir = self.data_dir
+
+        embeddings = self.embeddings[index, :, :]
+        img_name = '%s/%s.jpg' % (data_dir, key)
         imgs = get_imgs(img_name, self.imsize,
                         bbox, self.transform, normalize=self.norm)
 
