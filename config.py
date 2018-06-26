@@ -27,7 +27,7 @@ default.ENSURE_CAPTION_CONSISTENCY = False
 # Training options
 default.TRAIN = edict()
 default.TRAIN.BATCH_SIZE = 64
-default.TRAIN.VIS_COUNT = 64  # Number of images to be visualized
+default.TRAIN.VIS_COUNT = 32  # Number of images to be visualized
 default.TRAIN.MAX_EPOCH = 600
 default.TRAIN.SNAPSHOT_INTERVAL = 2000
 default.TRAIN.DISCRIMINATOR_LR = 2e-4

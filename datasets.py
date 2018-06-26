@@ -407,7 +407,7 @@ class FlowersDataset(data.Dataset):
                               wrong_bbox, self.transform, normalize=self.norm)
 
 
-        embedding = embeddings[:5]
+        embedding = embeddings[:2]
         if self.target_transform is not None:
             for i in range(embeddings.shape[0]):
                 transformed_embeddings[i] = self.target_transform(embeddings[i, :])

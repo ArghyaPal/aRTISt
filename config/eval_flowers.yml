@@ -20,7 +20,7 @@ ENSURE_CAPTION_CONSISTENCY: True
 
 # Training configurations
 TRAIN:
-    FLAG: True
+    FLAG: False
     NET_G: ''
     NET_D: ''
     NET_CCCN: ''
