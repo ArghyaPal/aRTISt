@@ -8,7 +8,7 @@ def parse_args():
                                                  ' from captions.')
     parser.add_argument('--cfg', dest='cfg_file',
                         help='optional config file',
-                        default='config/eval_flowers.yml', type=str)
+                        default='config/eval_birds.yml', type=str)
     parser.add_argument('--gpu', dest='gpu_id', type=str, default='0,1,2,3')
     parser.add_argument('--data_dir', dest='data_dir', type=str, default='')
     parser.add_argument('--manualSeed', type=int, help='manual seed')

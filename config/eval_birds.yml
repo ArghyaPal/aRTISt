@@ -1,0 +1,40 @@
+# General Configurations
+GPU_ID: '0,1,2,3'
+WORKERS: 4
+
+DATASET_NAME: 'birds'
+EMBEDDING_TYPE: 'cnn-rnn'
+DATA_DIR: './data/birds'
+VOCAB_FILENAME: 'cub_vocab.pkl'
+
+# Recurrence related configurations
+INITIAL_IMAGE_SIZE: 64
+FINAL_IMAGE_SIZE: 256
+IMG_IMPRV_STEPS: 3 # 64 -> 128 -> 256
+HIDDEN_VEC_SIZE: 100
+HIDDEN_STATE_SIZE: 8 # The hidden state will be of dimension 1 x HIDDEN_STATE_SIZE x HIDDEN_STATE_SIZE
+HIDDEN_STATE_DEPTH: 8  # Depth of the H-State
+
+# Cross Caption Consistency configurations
+ENSURE_CAPTION_CONSISTENCY: True
+
+# Training configurations
+TRAIN:
+    FLAG: False
+    NET_G: '/home/joseph/workspace/aRTISt/output/birds_2018_06_20_15_25_07/model/netG_74500.pth'
+    NET_D: ''
+    NET_CCCN: ''
+    # BATCH_SIZE: 14 # For DGX
+    BATCH_SIZE: 22    # For 1080-Ti
+    MAX_EPOCH: 1800
+    SNAPSHOT_INTERVAL: 500
+    DISCRIMINATOR_LR: 0.0002
+    GENERATOR_LR: 0.0002
+    CCCN_LR: 0.0002
+
+# GAN Configurations
+GAN:
+    EMBEDDING_DIM: 128
+    DF_DIM: 64
+    GF_DIM: 64
+    TEXT_CONDITION: True # Whether the discriminator should be conditioned on text embedding.
