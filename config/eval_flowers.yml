@@ -21,7 +21,7 @@ ENSURE_CAPTION_CONSISTENCY: True
 # Training configurations
 TRAIN:
     FLAG: False
-    NET_G: ''
+    NET_G: '/home/joseph/workspace/aRTISt/output/flowers_2018_06_22_13_37_37/model/netG_99500.pth'
     NET_D: ''
     NET_CCCN: ''
     # BATCH_SIZE: 14  # For DGX

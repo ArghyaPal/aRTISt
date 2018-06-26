@@ -423,13 +423,13 @@ class FlowersDataset(data.Dataset):
 
         embeddings = self.embeddings[index, :, :]
         img_name = '%s/%s.jpg' % (data_dir, key)
-        imgs = get_imgs(img_name, self.imsize,
-                        bbox, self.transform, normalize=self.norm)
+        imgs = get_imgs(img_name, self.imsize, bbox, self.transform, normalize=self.norm)
 
+        embedding = embeddings[:2]
         if self.target_transform is not None:
-            embeddings = self.target_transform(embeddings)
+            embedding = self.target_transform(embeddings[:2])
 
-        return imgs, embeddings, key
+        return imgs, embedding, key
 
     def __getitem__(self, index):
         return self.iterator(index)

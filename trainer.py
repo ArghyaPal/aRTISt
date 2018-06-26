@@ -417,7 +417,7 @@ class RecurrentGANTrainer:
         return total_loss
 
     def save_singleimages(self, images, filenames,
-                          save_dir, split_dir, sentenceID, imsize, mean=0):
+                          save_dir, split_dir, imsize, mean=0):
         for i in range(images.size(0)):
             s_tmp = '%s/single_samples/%s/%s' %\
                 (save_dir, split_dir, filenames[i]+'_'+str(mean))
@@ -426,7 +426,7 @@ class RecurrentGANTrainer:
                 print('Make a new folder: ', folder)
                 mkdir_p(folder)
 
-            fullpath = '%s_%d_sentence%d.png' % (s_tmp, imsize, sentenceID)
+            fullpath = '%s_%d_sentence.png' % (s_tmp, imsize)
             # range from [-1, 1] to [0, 255]
             img = images[i].add(1).div(2).mul(255).clamp(0, 255).byte()
             ndarr = img.permute(1, 2, 0).data.cpu().numpy()
@@ -547,7 +547,7 @@ class RecurrentGANTrainer:
             s_tmp = s_tmp[:s_tmp.rfind('/')]
             save_dir = '%s/iteration%d' % (s_tmp, iteration)
 
-            h0 = Variable(torch.FloatTensor(self.batch_size, 1, cfg.INITIAL_IMAGE_SIZE, cfg.INITIAL_IMAGE_SIZE))
+            h0 = Variable(torch.FloatTensor(self.batch_size, cfg.HIDDEN_VEC_SIZE))
 
             if cfg.CUDA:
                 netG.cuda()
@@ -566,5 +566,5 @@ class RecurrentGANTrainer:
                 batch_size = imgs[0].size(0)
                 h0.data.normal_(0, 1)
 
-                fake_imgs, _, _ = netG(h0, t_embeddings)
-                self.save_singleimages(fake_imgs[-1], filenames, save_dir, split_dir, 1, 32)
+                fake_imgs, _, _, _ = netG(h0, t_embeddings)
+                self.save_singleimages(fake_imgs[-1][-1], filenames, save_dir, split_dir, 32)
