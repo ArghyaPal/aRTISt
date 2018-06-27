@@ -417,7 +417,7 @@ class RecurrentGANTrainer:
         return total_loss
 
     def save_singleimages(self, images, filenames,
-                          save_dir, split_dir, imsize, mean=0):
+                          save_dir, split_dir, imsize, mean=0, save_using_pil=False):
         for i in range(images.size(0)):
             s_tmp = '%s/single_samples/%s/%s' %\
                 (save_dir, split_dir, filenames[i]+'_'+str(mean))
@@ -427,11 +427,17 @@ class RecurrentGANTrainer:
                 mkdir_p(folder)
 
             fullpath = '%s_%d_sentence.png' % (s_tmp, imsize)
-            # range from [-1, 1] to [0, 255]
-            img = images[i].add(1).div(2).mul(255).clamp(0, 255).byte()
-            ndarr = img.permute(1, 2, 0).data.cpu().numpy()
-            im = Image.fromarray(ndarr)
-            im.save(fullpath)
+
+            if save_using_pil:
+                # range from [-1, 1] to [0, 255]
+                img = images[i].add(1).div(2).mul(255).clamp(0, 255).byte()
+                ndarr = img.permute(1, 2, 0).data.cpu().numpy()
+                im = Image.fromarray(ndarr)
+                im.save(fullpath)
+            else:
+                img = images[i].data.cpu()
+                img = img.view(1, 3, imsize, imsize)
+                vutils.save_image(img, fullpath, nrow=1, normalize=True)
 
     def train(self):
         self.netG, self.netsD, self.num_Ds, self.cccn, start_count = load_network(self.gpus)
@@ -554,7 +560,7 @@ class RecurrentGANTrainer:
                 h0 = h0.cuda()
 
             # switch to evaluate mode
-            netG.eval()
+            # netG.eval()
             for step, data in enumerate(self.data_loader, 0):
                 imgs, t_embeddings, filenames = data
                 if cfg.CUDA:
@@ -565,4 +571,4 @@ class RecurrentGANTrainer:
                 h0.data.normal_(0, 1)
 
                 fake_imgs, _, _, _ = netG(h0, t_embeddings)
-                self.save_singleimages(fake_imgs[-1][-1], filenames, save_dir, split_dir, 32)
+                self.save_singleimages(fake_imgs[-1][-1], filenames, save_dir, split_dir, 256)
