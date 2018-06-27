@@ -243,10 +243,11 @@ class BirdsDataset(data.Dataset):
         imgs = get_imgs(img_name, self.imsize,
                         bbox, self.transform, normalize=self.norm)
 
+        embedding = embeddings[:2]
         if self.target_transform is not None:
-            embeddings = self.target_transform(embeddings)
+            embedding = self.target_transform(embeddings[:2])
 
-        return imgs, embeddings, key
+        return imgs, embedding, key
 
     def __getitem__(self, index):
         return self.iterator(index)
@@ -333,7 +334,6 @@ class FlowersDataset(data.Dataset):
         with open(data_dir + embedding_filename, 'rb') as f:
             embeddings = pickle.load(f)
             embeddings = np.array(embeddings)
-            # embedding_shape = [embeddings.shape[-1]]
             print('embeddings: ', embeddings.shape)
         return embeddings
 

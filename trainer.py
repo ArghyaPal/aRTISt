@@ -562,8 +562,6 @@ class RecurrentGANTrainer:
                 else:
                     t_embeddings = Variable(t_embeddings)
 
-                embedding_dim = t_embeddings.size(1)
-                batch_size = imgs[0].size(0)
                 h0.data.normal_(0, 1)
 
                 fake_imgs, _, _, _ = netG(h0, t_embeddings)
