@@ -224,7 +224,7 @@ class BirdsDataset(data.Dataset):
                               wrong_bbox, self.transform, normalize=self.norm)
 
         # Embeddings for all the captions in the dataset, for an image.
-        embedding = embeddings[:5]
+        embedding = embeddings[:2]
         if self.target_transform is not None:
             transformed_embeddings = []
             for i in range(embeddings.shape[0]):
@@ -243,9 +243,9 @@ class BirdsDataset(data.Dataset):
         imgs = get_imgs(img_name, self.imsize,
                         bbox, self.transform, normalize=self.norm)
 
-        embedding = embeddings[:5]
+        embedding = embeddings[:1]
         if self.target_transform is not None:
-            embedding = self.target_transform(embeddings[:5])
+            embedding = self.target_transform(embeddings[:1])
 
         return imgs, embedding, key
 
