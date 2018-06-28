@@ -527,7 +527,7 @@ class RecurrentGANTrainer:
         save_model(self.netG, avg_param_G, self.netsD, self.cccn, count, self.model_dir)
         self.summary_writer.close()
 
-    def evaluate(self, split_dir):
+    def evaluate(self, split_dir, scheduled_test=True):
         if cfg.TRAIN.NET_G == '':
             print('Error: Could not find the saved Generator Model.')
         else:
@@ -552,6 +552,8 @@ class RecurrentGANTrainer:
             iteration = int(s_tmp[istart:iend])
             s_tmp = s_tmp[:s_tmp.rfind('/')]
             save_dir = '%s/iteration%d' % (s_tmp, iteration)
+            if scheduled_test:
+                save_dir = '%s/stage' % (s_tmp)
 
             h0 = Variable(torch.FloatTensor(self.batch_size, cfg.HIDDEN_VEC_SIZE))
 

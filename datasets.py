@@ -425,9 +425,9 @@ class FlowersDataset(data.Dataset):
         img_name = '%s/%s.jpg' % (data_dir, key)
         imgs = get_imgs(img_name, self.imsize, bbox, self.transform, normalize=self.norm)
 
-        embedding = embeddings[:2]
+        embedding = embeddings[:1]
         if self.target_transform is not None:
-            embedding = self.target_transform(embeddings[:2])
+            embedding = self.target_transform(embeddings[:1])
 
         return imgs, embedding, key
 
