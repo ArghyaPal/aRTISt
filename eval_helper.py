@@ -2,12 +2,13 @@ from subprocess import check_output, call
 import os, sys
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 
-model_base_path = '/home/joseph/workspace/aRTISt/output/birds_2018_06_20_15_25_07/model/'
+model_base_path = '/home/joseph/workspace/birds_models_artist/'
+# model_base_path = '/home/joseph/workspace/aRTISt/output/birds_2018_06_20_15_25_07/model/'
 eval_script_path = '/home/joseph/workspace/StackGAN-inception-model/'
 artist_script_path = '/home/joseph/workspace/aRTISt/'
 
 # models = ['netG_'+str(i) for i in range(30000, 50000, 500)]
-models = ['netG_'+str(i) for i in range(50000, 75500, 500)]
+models = ['netG_'+str(i) for i in range(75200, 98200, 200)]
 # models = ['netG_'+str(i) for i in range(50000, 99000, 500)]
 
 print len(models)
