@@ -9,6 +9,7 @@ artist_script_path = '/home/joseph/workspace/aRTISt/'
 
 # models = ['netG_'+str(i) for i in range(30000, 50000, 500)]
 models = ['netG_'+str(i) for i in range(75200, 98200, 200)]
+models = ['netG_'+str(i) for i in range(97800, 98200, 200)]
 # models = ['netG_'+str(i) for i in range(50000, 99000, 500)]
 
 print len(models)
