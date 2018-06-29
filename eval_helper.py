@@ -8,7 +8,7 @@ eval_script_path = '/home/joseph/workspace/StackGAN-inception-model/'
 artist_script_path = '/home/joseph/workspace/aRTISt/'
 
 # models = ['netG_'+str(i) for i in range(30000, 50000, 500)]
-models = ['netG_'+str(i) for i in range(75200, 98200, 200)]
+models = ['netG_'+str(i) for i in range(75200, 100200, 200)]
 # models = ['netG_'+str(i) for i in range(97800, 98200, 200)]
 # models = ['netG_'+str(i) for i in range(50000, 99000, 500)]
 
@@ -32,7 +32,7 @@ for model in models:
     out = check_output(['python', eval_script_path + 'inception_score.py', 'image_folder', model_base_path + 'stage/'])
     call(['cd', artist_script_path], shell=True)
 
-    with open('./output_75200_98200.txt', 'a') as fout:
+    with open('./output_75200_100000.txt', 'a') as fout:
         fout.write(model + '\n\n' + out + '\n++++++==========++++++\n')
 
     print 'Clearing stage.\n'
