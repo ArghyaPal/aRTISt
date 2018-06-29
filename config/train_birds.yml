@@ -21,9 +21,9 @@ ENSURE_CAPTION_CONSISTENCY: True
 # Training configurations
 TRAIN:
     FLAG: True
-    NET_G: '/home/joseph/workspace/aRTISt/output/birds_2018_06_20_15_25_07/model/netG_75000.pth'
-    NET_D: '/home/joseph/workspace/aRTISt/output/birds_2018_06_20_15_25_07/model/netD'
-    NET_CCCN: '/home/joseph/workspace/aRTISt/output/birds_2018_06_20_15_25_07/model/cccn.pth'
+    NET_G: '/home/joseph/workspace/aRTISt/output/birds_2018_06_27_23_53_19/model/netG_100000.pth'
+    NET_D: '/home/joseph/workspace/aRTISt/output/birds_2018_06_27_23_53_19/model/netD'
+    NET_CCCN: '/home/joseph/workspace/aRTISt/output/birds_2018_06_27_23_53_19/model/cccn.pth'
     BATCH_SIZE: 32 # For DGX
     MAX_EPOCH: 2500
     SNAPSHOT_INTERVAL: 200
