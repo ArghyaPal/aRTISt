@@ -25,9 +25,9 @@ TRAIN:
     # NET_G: '/home/joseph/workspace/aRTISt/output/birds_2018_06_20_15_25_07/model/netG_75000.pth'
     NET_D: ''
     NET_CCCN: ''
-    BATCH_SIZE: 70 # For DGX - 1 caption
-    # BATCH_SIZE: 14 # For DGX
-    # BATCH_SIZE: 10    # For 1080-Ti
+#    BATCH_SIZE: 70 # For DGX - 1 caption
+#    BATCH_SIZE: 14 # For DGX
+    BATCH_SIZE: 10    # For 1080-Ti
     MAX_EPOCH: 1800
     SNAPSHOT_INTERVAL: 500
     DISCRIMINATOR_LR: 0.0002
