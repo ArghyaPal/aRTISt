@@ -24,7 +24,7 @@ TRAIN:
     NET_G: '/home/joseph/workspace/aRTISt/output/birds_2018_06_29_05_37_40/model/netG_137400.pth'
     NET_D: '/home/joseph/workspace/aRTISt/output/birds_2018_06_29_05_37_40/model/netD'
     NET_CCCN: '/home/joseph/workspace/aRTISt/output/birds_2018_06_29_05_37_40/model/cccn.pth'
-    BATCH_SIZE: 32 # For DGX
+    BATCH_SIZE: 50 # For DGX
     MAX_EPOCH: 4500
     SNAPSHOT_INTERVAL: 200
     DISCRIMINATOR_LR: 0.0002
