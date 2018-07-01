@@ -243,9 +243,9 @@ class BirdsDataset(data.Dataset):
         imgs = get_imgs(img_name, self.imsize,
                         bbox, self.transform, normalize=self.norm)
 
-        embedding = embeddings[:1]
+        embedding = embeddings[:2]
         if self.target_transform is not None:
-            embedding = self.target_transform(embeddings[:1])
+            embedding = self.target_transform(embeddings[:2])
 
         return imgs, embedding, key
 
