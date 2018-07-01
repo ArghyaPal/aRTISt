@@ -33,10 +33,12 @@ if __name__ == "__main__":
     print('Using config:')
     pprint.pprint(cfg)
 
-    if not cfg.TRAIN.FLAG:
-        args.manualSeed = 100
-    elif args.manualSeed is None:
-        args.manualSeed = random.randint(1, 10000)
+    # if not cfg.TRAIN.FLAG:
+    #     args.manualSeed = 100
+    # elif args.manualSeed is None:
+    #     args.manualSeed = random.randint(1, 10000)
+
+    args.manualSeed = 100
 
     random.seed(args.manualSeed)
     torch.manual_seed(args.manualSeed)
